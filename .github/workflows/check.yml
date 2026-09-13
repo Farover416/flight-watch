@@ -24,7 +24,7 @@ on:
         type: boolean
         default: true
       only:
-        description: "Limit to these city codes (comma separated), e.g. TYO,SEL"
+        description: "Check one place only - area, city or code, e.g. Yunnan or Beijing"
         type: string
         default: ""
 
@@ -60,10 +60,11 @@ jobs:
           SUMMARY: ${{ inputs.summary }}
           ONLY: ${{ inputs.only }}
         run: |
-          args=""
-          [ "$SUMMARY" = "true" ] && args="$args --summary"
-          [ -n "$ONLY" ] && args="$args --only $ONLY"
-          python -m flightwatch $args
+          args=()
+          [ "$SUMMARY" = "true" ] && args+=(--summary)
+          # quoted, so a two-word place name stays one argument
+          [ -n "$ONLY" ] && args+=(--only "$ONLY")
+          python -m flightwatch "${args[@]}"
 
       - name: Save price history
         if: always()
