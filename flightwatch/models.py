@@ -225,6 +225,10 @@ class SweepResult:
     combos: list[Combo] = field(default_factory=list)
     searches_run: int = 0
     searches_failed: int = 0
+    # Pages that came back, looked like results, and could not be decoded.
+    # These used to be filed as "this route has no flights", which is how a
+    # sweep could report nothing at all for a city that has daily service.
+    searches_unparsed: int = 0
     legs_found: int = 0
     # Split out, because "legs found but no trips" is ambiguous until you know
     # which side came back empty - you need both to build a return trip.
@@ -233,18 +237,23 @@ class SweepResult:
     errors: list[str] = field(default_factory=list)
 
     @property
+    def blind_searches(self) -> int:
+        """Searches that returned no usable answer either way."""
+        return self.searches_failed + self.searches_unparsed
+
+    @property
     def looks_blocked(self) -> bool:
-        """Most searches ERRORED, rather than simply finding nothing.
+        """Most searches came back with nothing we could read.
 
         Finding nothing is a real answer - a small region with no service
-        inside the date and layover rules returns zero legs and zero failures,
-        and warning about that would be a false alarm. Being blocked shows up
-        as searches raising, which _fetch now tells apart from an empty
-        results page.
+        inside the date and layover rules returns zero legs, zero failures and
+        zero unreadable pages, and warning about that would be a false alarm.
+        Being unable to see is different, and counts whether the search raised
+        or merely handed back a page we could not decode.
         """
         return (
             self.searches_run >= 5
-            and self.searches_failed >= self.searches_run * 0.8
+            and self.blind_searches >= self.searches_run * 0.8
         )
 
     def best(self, n: int) -> list[Combo]:
