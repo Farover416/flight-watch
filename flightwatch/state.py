@@ -84,6 +84,8 @@ class Store:
             "searches_run": result.searches_run,
             "searches_failed": result.searches_failed,
             "legs_found": result.legs_found,
+            "outbound_legs": result.outbound_legs,
+            "inbound_legs": result.inbound_legs,
             "cheapest": [c.to_json() for c in result.best(5)],
         }
         with self.history_path.open("a", encoding="utf-8") as handle:
