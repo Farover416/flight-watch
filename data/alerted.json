@@ -81,5 +81,11 @@
   "PEK/PEK/2026-12-19/2026-12-29/round-trip": 867,
   "PEK/PEK/2026-12-19/2026-12-27/round-trip": 867,
   "CKG/CKG/2026-12-19/2026-12-27/round-trip": 826,
-  "CKG/CKG/2026-12-19/2026-12-28/round-trip": 829
+  "CKG/CKG/2026-12-19/2026-12-28/round-trip": 829,
+  "ICN/PUS/2026-12-19/2026-12-27/one-way pair": 776,
+  "ICN/PUS/2026-12-19/2026-12-28/one-way pair": 776,
+  "XMN/CAN/2026-12-19/2026-12-28/one-way pair": 809,
+  "XMN/CAN/2026-12-19/2026-12-29/one-way pair": 809,
+  "NGB/NGB/2026-12-19/2026-12-27/round-trip": 889,
+  "XMN/SZX/2026-12-19/2026-12-27/one-way pair": 893
 }
