@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import logging
 import random
 import time
@@ -15,7 +16,17 @@ from fast_flights import (
     fetch_flights_html,
 )
 from fast_flights.exceptions import FlightsNotFound
-from fast_flights.parser import parse_js
+from fast_flights.model import (
+    Airline,
+    Airport,
+    Alliance,
+    CarbonEmission,
+    Flights,
+    JsMetadata,
+    SimpleDatetime,
+    SingleFlight,
+)
+from fast_flights.parser import ResultList, _parse_time
 from selectolax.lexbor import LexborHTMLParser
 
 from .models import Layover, Leg
@@ -140,13 +151,104 @@ def _ds_payloads(tree):
     return found
 
 
+def _at(seq, index):
+    """seq[index], or None when it was not shipped."""
+    try:
+        return seq[index]
+    except (TypeError, IndexError, KeyError):
+        return None
+
+
+def _decode_itinerary(entry) -> Flights:
+    """One priced itinerary out of Google's positional arrays.
+
+    Only the fields we actually use are required. Carbon figures are optional
+    because Google omits them often enough to matter and we never read them.
+    """
+    flight = entry[0]
+    price = entry[1][0][1]
+
+    segments = []
+    for seg in flight[2]:
+        segments.append(
+            SingleFlight(
+                from_airport=Airport(code=seg[3], name=seg[4]),
+                to_airport=Airport(code=seg[6], name=seg[5]),
+                departure=SimpleDatetime(
+                    date=tuple(seg[20]), time=_parse_time(seg[8])
+                ),
+                arrival=SimpleDatetime(
+                    date=tuple(seg[21]), time=_parse_time(seg[10])
+                ),
+                duration=_at(seg, 11),
+                plane_type=_at(seg, 17),
+            )
+        )
+    if not segments:
+        raise ValueError("itinerary with no flights")
+
+    extras = _at(flight, 22)
+    return Flights(
+        type=flight[0],
+        price=price,
+        airlines=flight[1],
+        flights=segments,
+        carbon=CarbonEmission(
+            typical_on_route=_at(extras, 8), emission=_at(extras, 7)
+        ),
+    )
+
+
+def _decode_payload(text: str) -> tuple[ResultList, int]:
+    """Decode one AF_initDataCallback payload. Returns (itineraries, skipped).
+
+    This is fast-flights' parse_js, rewritten so that one malformed itinerary
+    costs you that itinerary rather than the whole page. Google ships each
+    flight as a positional array and does not always ship every position; the
+    library indexes straight in, so a single short entry anywhere in a
+    fifty-result page raised IndexError and the search was then recorded as
+    "this route has no flights". The busiest routes carry the most results and
+    so tripped it most often - which is to say, the cheap ones.
+    """
+    data = text.split("data:", 1)[1].rsplit(",", 1)[0]
+    if data.endswith("errorHasStatus: true"):
+        raise FlightsNotFound("no flights found; received error")
+    payload = json.loads(data)
+
+    # Raises for anything that is not shaped like a results payload, which is
+    # what most of the ds: scripts on the page are.
+    entries = payload[3][0]
+    if entries is not None and not isinstance(entries, list):
+        raise ValueError(f"itinerary list is a {type(entries).__name__}")
+
+    results = ResultList()
+    alliances, airlines = [], []
+    try:
+        alliances = [Alliance(code=c, name=n) for c, n in payload[7][1][0]]
+    except Exception:  # nice-to-have; never worth losing the fares over
+        pass
+    try:
+        airlines = [Airline(code=c, name=n) for c, n in payload[7][1][1]]
+    except Exception:
+        pass
+    results.metadata = JsMetadata(alliances=alliances, airlines=airlines)
+
+    skipped = 0
+    for entry in entries or []:
+        try:
+            results.append(_decode_itinerary(entry))
+        except Exception:
+            skipped += 1
+    return results, skipped
+
+
 def _parse_results(html: str):
     """Parse Google's itinerary payload, wherever on the page it landed.
 
-    The ds:1 path is tried first and untouched, so the common case behaves
-    exactly as fast-flights does. Only when that fails do we look through the
-    other payloads, keeping whichever yields the most itineraries.
+    ds:1 is where it normally lives and is tried first; if that payload is not
+    the results one, the other ds: scripts get a turn.
     """
+    global _skipped
     tree = LexborHTMLParser(html)
     payloads = _ds_payloads(tree)
     if not payloads:
@@ -157,45 +259,61 @@ def _parse_results(html: str):
         )
 
     first_error: str | None = None
-    best = None
+    best: ResultList | None = None
+    best_skipped = 0
     for name, node in payloads:
         text = node.text()
         if "data:" not in text:
             continue
         try:
-            parsed = parse_js(text)
+            parsed, skipped = _decode_payload(text)
         except FlightsNotFound:
             raise
         except Exception as exc:
             if first_error is None:
                 first_error = f"{name} {type(exc).__name__}: {exc}"
             continue
-        if name == "ds:1":
-            return parsed  # the usual place; trust it even when it is empty
+        if name == "ds:1" and not (skipped and not parsed):
+            # The usual place - trust it even when it is legitimately empty,
+            # but not when every entry in it failed to decode, which means we
+            # are reading the wrong payload and should keep looking.
+            best, best_skipped = parsed, skipped
+            break
         if best is None or len(parsed) > len(best):
-            best = parsed
-    if best is not None:
-        return best
+            best, best_skipped = parsed, skipped
 
-    raise UnreadablePage(
-        f"{len(payloads)} payload(s) [{', '.join(n for n, _ in payloads)}] "
-        f"in {len(html)} bytes, none parsed; first error: {first_error}"
-    )
+    if best is None:
+        raise UnreadablePage(
+            f"{len(payloads)} payload(s) [{', '.join(n for n, _ in payloads)}] "
+            f"in {len(html)} bytes, none parsed; first error: {first_error}"
+        )
+    if best_skipped:
+        _skipped += best_skipped
+        log.info("skipped %d unreadable itinerar(y/ies), kept %d",
+                 best_skipped, len(best))
+    return best
 
 
-# How many results pages this process could see but not read. A sweep that
+# How many results pages this process could see but not read, and how many
+# individual itineraries were dropped out of pages that did read. A sweep that
 # cannot decode half its pages has not discovered that the world has no
 # flights, and the run needs to say so out loud.
 _unreadable = 0
+_skipped = 0
 
 
 def unreadable_count() -> int:
     return _unreadable
 
 
+def skipped_count() -> int:
+    return _skipped
+
+
 def reset_unreadable() -> None:
-    global _unreadable
+    global _unreadable, _skipped
     _unreadable = 0
+    _skipped = 0
 
 
 def _fetch(cfg, query):
