@@ -189,6 +189,10 @@ def search_one_way(
         layovers = _layovers(segments)
         if not layovers_ok(cfg, layovers):
             continue
+        airlines = _airline_names(item.airlines, results.metadata)
+        # Google will not price a checked bag, so add our own estimate for the
+        # one leg this itinerary covers.
+        bag_fee = cfg.checked_bag_fee(airlines)
 
         legs.append(
             Leg(
@@ -200,9 +204,10 @@ def search_one_way(
                 arrive=arrive,
                 duration_min=sum(s.duration or 0 for s in segments),
                 stops=len(segments) - 1,
-                airlines=_airline_names(item.airlines, results.metadata),
-                price=item.price,
+                airlines=airlines,
+                price=item.price + bag_fee,
                 layovers=layovers,
+                bag_fee=bag_fee,
             )
         )
 
@@ -253,6 +258,9 @@ def search_round_trip(
         layovers = _layovers(segments)
         if not layovers_ok(cfg, layovers):
             continue
+        airlines = _airline_names(item.airlines, results.metadata)
+        # A round-trip quote covers both legs, so the bag is paid twice.
+        bag_fee = cfg.checked_bag_fee(airlines) * 2
 
         leg = Leg(
             search_from=cfg.origin,
@@ -263,11 +271,12 @@ def search_round_trip(
             arrive=arrive,
             duration_min=sum(s.duration or 0 for s in segments),
             stops=len(segments) - 1,
-            airlines=_airline_names(item.airlines, results.metadata),
-            price=item.price,
+            airlines=airlines,
+            price=item.price + bag_fee,
             layovers=layovers,
+            bag_fee=bag_fee,
         )
-        quotes.append((leg, item.price))
+        quotes.append((leg, item.price + bag_fee))
 
     quotes.sort(key=lambda pair: pair[1])
     return quotes[: cfg.keep_per_search]
