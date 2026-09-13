@@ -61,8 +61,9 @@ class Leg:
     duration_min: int
     stops: int
     airlines: tuple[str, ...]
-    price: int
+    price: int          # all-in: fare plus the estimated checked-bag fee
     layovers: tuple[Layover, ...] = ()
+    bag_fee: int = 0    # how much of price is the bag estimate
 
     @property
     def date(self) -> str:
