@@ -39,7 +39,8 @@ class Config:
     adults: int = 1
     seat: str = "economy"
     carry_on_bags: int = 1
-    checked_bags: int = 1
+    checked_bags: int = 0
+    checked_bag_fees: dict[str, int] = field(default_factory=dict)
     max_stops: int | None = 1
     exclude_basic_economy: bool = False
 
@@ -96,6 +97,20 @@ class Config:
                 return country
         return "?"
 
+    def checked_bag_fee(self, airlines) -> int:
+        """Estimated one-way checked-bag fee for an itinerary, in SGD.
+
+        Google will not price this for us, so it is added from the table in
+        config.yaml. Carriers absent from the table include a bag in the fare.
+        """
+        fee = 0
+        for airline in airlines or ():
+            name = str(airline).casefold()
+            for key, amount in self.checked_bag_fees.items():
+                if str(key).casefold() in name:
+                    fee = max(fee, int(amount))
+        return fee
+
     def city_name(self, code: str) -> str:
         """Readable name for an airport or city code, falling back to the code."""
         return self.cities.get(code, code)
@@ -132,7 +147,7 @@ def load(path: str | Path | None = None) -> Config:
     cfg = Config()
     for key in (
         "origin", "currency", "adults", "seat", "carry_on_bags",
-        "checked_bags", "max_stops",
+        "checked_bags", "checked_bag_fees", "max_stops",
         "exclude_basic_economy", "max_total", "realert_drop", "new_best_drop",
         "return_dates", "min_nights", "destinations", "rail_groups",
         "check_round_trip",
