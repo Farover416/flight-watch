@@ -1,33 +1,33 @@
 {
-  "total": 739,
-  "signature": "ICN/ICN/2026-12-19/2026-12-27/one-way pair",
-  "seen_at": "2026-09-13T04:09:44Z",
+  "total": 541,
+  "signature": "CAN/CAN/2026-12-19/2026-12-28/one-way pair",
+  "seen_at": "2026-09-13T04:51:43Z",
   "detail": {
-    "signature": "ICN/ICN/2026-12-19/2026-12-27/one-way pair",
-    "total": 739,
-    "country": "Korea",
+    "signature": "CAN/CAN/2026-12-19/2026-12-28/one-way pair",
+    "total": 541,
+    "country": "China",
     "source": "one-way pair",
     "open_jaw": false,
-    "nights": 8,
+    "nights": 7,
     "out": {
-      "route": "SIN-ICN",
-      "depart": "2026-12-19T11:15:00",
-      "arrive": "2026-12-19T22:40:00",
+      "route": "SIN-CAN",
+      "depart": "2026-12-19T21:40:00",
+      "arrive": "2026-12-21T01:50:00",
+      "stops": 1,
+      "airlines": [
+        "Thai Lion Air"
+      ],
+      "price": 356
+    },
+    "back": {
+      "route": "CAN-SIN",
+      "depart": "2026-12-28T03:15:00",
+      "arrive": "2026-12-28T13:55:00",
       "stops": 1,
       "airlines": [
         "Vietjet"
       ],
-      "price": 483
-    },
-    "back": {
-      "route": "ICN-SIN",
-      "depart": "2026-12-27T21:10:00",
-      "arrive": "2026-12-29T00:05:00",
-      "stops": 1,
-      "airlines": [
-        "Shandong"
-      ],
-      "price": 256
+      "price": 185
     }
   }
 }
