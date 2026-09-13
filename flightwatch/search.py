@@ -8,8 +8,14 @@ import time
 from datetime import datetime
 from typing import Sequence
 
-from fast_flights import FlightQuery, Passengers, create_query, get_flights
+from fast_flights import (
+    FlightQuery,
+    Passengers,
+    create_query,
+    fetch_flights_html,
+)
 from fast_flights.exceptions import FlightsNotFound
+from fast_flights.parser import parse
 
 from .models import Layover, Leg
 
@@ -39,6 +45,7 @@ def build_query(cfg, legs: Sequence[LegSpec], trip: str):
         language="en-US",
         max_stops=cfg.max_stops,
         carry_on_bags=cfg.carry_on_bags,
+        checked_bags=cfg.checked_bags,
         exclude_basic_economy=cfg.exclude_basic_economy,
     )
 
@@ -91,32 +98,53 @@ def _airline_names(codes, metadata) -> tuple[str, ...]:
     return tuple(lookup.get(code, code) for code in (codes or []))
 
 
-# fast-flights' parser assumes Google returned flight results. When it did not
-# - an unserved route, a date with no service - the parse falls over with one of
-# these rather than returning an empty list. That is a "no flights" answer, not
-# a failure, so it must not be retried: each pointless retry costs 24 seconds of
-# backoff, and on a sweep covering small Chinese cities there are a hundred of
-# them.
+# fast-flights' parser assumes Google returned flight results. When it did not,
+# the parse falls over with one of these rather than returning an empty list.
 NO_RESULTS_ERRORS = (TypeError, IndexError, KeyError, AttributeError)
+
+# ...but there are two very different reasons the results can be absent: the
+# route genuinely has no service, or Google served a block/consent page instead.
+# They raise the same exception, so the page itself has to be inspected. Getting
+# this wrong in the permissive direction would silently drop real fares, so
+# anything that does not clearly look like a full results page is retried.
+THROTTLE_MARKERS = ("unusual traffic", "/sorry/", "captcha", "consent.google")
+MIN_RESULTS_PAGE_BYTES = 50_000
+
+
+def _is_real_results_page(html: str) -> bool:
+    head = html[:20_000].lower()
+    if any(marker in head for marker in THROTTLE_MARKERS):
+        return False
+    return len(html) >= MIN_RESULTS_PAGE_BYTES
 
 
 def _fetch(cfg, query):
     """Fetch with retries. Returns a ResultList, or None for no flights."""
     last_error: Exception | None = None
     for attempt in range(cfg.request_retries + 1):
+        html: str | None = None
         try:
-            return get_flights(query, proxy=cfg.proxy)
+            html = fetch_flights_html(query, proxy=cfg.proxy)
+            return parse(html)
         except FlightsNotFound:
             return None  # a genuine "no flights on this route/date"
         except NO_RESULTS_ERRORS as exc:
-            log.info("no flights on this route/date (%s)", exc)
-            return None
+            if html is not None and _is_real_results_page(html):
+                # A full page that simply has no flights on it. Not a failure,
+                # and retrying it would only burn 24 seconds of backoff.
+                log.info("no flights on this route/date (%d byte page)", len(html))
+                return None
+            last_error = exc
+            log.warning(
+                "parse failed on a %s page - treating as blocked, not empty",
+                "short" if html is None else f"{len(html)} byte",
+            )
         except Exception as exc:  # network, rate limit
             last_error = exc
-            if attempt < cfg.request_retries:
-                wait = cfg.request_backoff_seconds * (attempt + 1)
-                log.warning("fetch failed (%s), retrying in %.0fs", exc, wait)
-                time.sleep(wait)
+        if attempt < cfg.request_retries:
+            wait = cfg.request_backoff_seconds * (attempt + 1)
+            log.warning("retrying in %.0fs (%s)", wait, last_error)
+            time.sleep(wait)
     raise last_error if last_error else RuntimeError("fetch failed")
 
 
