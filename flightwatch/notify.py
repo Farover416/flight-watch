@@ -169,10 +169,11 @@ def leg_line(cfg, leg) -> str:
         stops = "via " + ", ".join(parts)
     else:
         stops = "direct" if leg.stops == 0 else f"{leg.stops} stop"
+    bag = f" +S${leg.bag_fee} bag" if leg.bag_fee else ""
     return (
         f"{esc(cfg.city_name(leg.from_airport))} → {esc(cfg.city_name(leg.to_airport))}"
         f"  {leg.depart:%d %b %H:%M} → {leg.arrive:%d %b %H:%M}"
-        f"  ({esc(stops)}, {esc(leg.airline_label)})"
+        f"  ({esc(stops)}, {esc(leg.airline_label)}{esc(bag)})"
     )
 
 
@@ -228,8 +229,9 @@ def format_deals(cfg, items, heading: str) -> str:
             "carriers, but a delay on one leg is not protected by the other.</i>"
         )
     lines.append(
-        f"<i>Prices include an estimated 1 checked bag + cabin bag; "
-        f"budget S${cfg.max_total}. "
+        f"<i>Totals include a checked bag: free on carriers that bundle one, "
+        f"otherwise our own estimate (Google will not price it). "
+        f"Budget S${cfg.max_total}. "
         "Google's price is a ceiling - vouchers, card promos and cashback only "
         "show at checkout, so the comparison links are worth the minute.</i>"
     )
