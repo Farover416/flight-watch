@@ -25,9 +25,11 @@ class Layover:
     min_minutes: int = 75
     short_max_minutes: int = 240
     explore_min_minutes: int = 420
-    explore_max_minutes: int = 900
-    explore_from_hour: int = 7
-    explore_to_hour: int = 22
+    explore_max_minutes: int = 960
+    day_from_hour: int = 8
+    day_to_hour: int = 21
+    min_daylight_minutes: int = 300
+    max_dead_minutes: int = 180
 
 
 @dataclass
