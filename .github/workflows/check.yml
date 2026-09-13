@@ -2,9 +2,21 @@ name: flight watch
 
 on:
   schedule:
-    # Every 8 hours. Times are UTC, so this lands ~09:00 / 17:00 / 01:00 SGT.
-    # The odd minute avoids GitHub's on-the-hour queue.
-    - cron: "17 1,9,17 * * *"
+    # All times UTC; Singapore is UTC+8. The odd minutes avoid GitHub's
+    # on-the-hour queue, when scheduled jobs get delayed the most.
+    #
+    # Baseline: every 4 hours, so 08:17 / 12:17 / 16:17 / 20:17 / 00:17 / 04:17
+    # Singapore time. A full sweep takes about 30 minutes, so this is roughly
+    # three hours of searching a day - frequent enough to catch a fare reload,
+    # gentle enough not to look like abuse.
+    - cron: "17 */4 * * *"
+    # Scoot's Tuesday flash sales open at 10:00 SGT and run to midnight, and
+    # Scoot is the carrier most likely to undercut on these routes. The
+    # baseline already covers 08:17 and 12:17, so this fills the gap just
+    # after the sale goes live.
+    # (No Friday slot: Jetstar Asia, the other weekly-sale carrier out of
+    # Changi, shut down in July 2025.)
+    - cron: "20 2 * * 2"
   workflow_dispatch:
     inputs:
       summary:
