@@ -19,6 +19,18 @@ class OutboundDay:
 
 
 @dataclass
+class Layover:
+    """When a connection is worth having. See config.yaml for the reasoning."""
+
+    min_minutes: int = 75
+    short_max_minutes: int = 240
+    explore_min_minutes: int = 420
+    explore_max_minutes: int = 900
+    explore_from_hour: int = 7
+    explore_to_hour: int = 22
+
+
+@dataclass
 class Config:
     origin: str = "SIN"
     currency: str = "SGD"
@@ -43,8 +55,12 @@ class Config:
     round_trip_candidates: int = 6
     extended_per_run: int = 12
 
+    cities: dict[str, str] = field(default_factory=dict)
+    layover: Layover = field(default_factory=Layover)
+
     keep_per_search: int = 5
-    report_top: int = 8
+    report_top: int = 12
+    max_per_city_pair: int = 3
 
     request_delay_seconds: float = 3.0
     request_retries: int = 2
@@ -76,6 +92,10 @@ class Config:
             if code in tiers.get("priority", []) or code in tiers.get("extended", []):
                 return country
         return "?"
+
+    def city_name(self, code: str) -> str:
+        """Readable name for an airport or city code, falling back to the code."""
+        return self.cities.get(code, code)
 
     def rail_groups_of(self, code: str) -> set[str]:
         return {name for name, codes in self.rail_groups.items() if code in codes}
@@ -113,7 +133,8 @@ def load(path: str | Path | None = None) -> Config:
         "return_dates", "min_nights", "destinations", "rail_groups",
         "check_round_trip",
         "round_trip_candidates", "extended_per_run", "keep_per_search",
-        "report_top", "request_delay_seconds", "request_retries",
+        "report_top", "max_per_city_pair", "cities",
+        "request_delay_seconds", "request_retries",
         "request_backoff_seconds",
     ):
         if key in raw and raw[key] is not None:
@@ -127,6 +148,9 @@ def load(path: str | Path | None = None) -> Config:
         for day in raw.get("outbound", [])
     ]
     cfg.return_dates = [str(d) for d in cfg.return_dates]
+
+    rules = raw.get("layover") or {}
+    cfg.layover = Layover(**{k: v for k, v in rules.items() if hasattr(Layover, k)})
 
     deadline = raw.get("arrive_home_by")
     if isinstance(deadline, datetime):
