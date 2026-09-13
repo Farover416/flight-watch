@@ -83,6 +83,7 @@ class Store:
             "ts": result.started.isoformat(timespec="seconds") + "Z",
             "searches_run": result.searches_run,
             "searches_failed": result.searches_failed,
+            "searches_unparsed": result.searches_unparsed,
             "legs_found": result.legs_found,
             "outbound_legs": result.outbound_legs,
             "inbound_legs": result.inbound_legs,
