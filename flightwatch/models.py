@@ -226,6 +226,10 @@ class SweepResult:
     searches_run: int = 0
     searches_failed: int = 0
     legs_found: int = 0
+    # Split out, because "legs found but no trips" is ambiguous until you know
+    # which side came back empty - you need both to build a return trip.
+    outbound_legs: int = 0
+    inbound_legs: int = 0
     errors: list[str] = field(default_factory=list)
 
     @property
