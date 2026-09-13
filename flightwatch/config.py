@@ -39,6 +39,7 @@ class Config:
     adults: int = 1
     seat: str = "economy"
     carry_on_bags: int = 1
+    checked_bags: int = 1
     max_stops: int | None = 1
     exclude_basic_economy: bool = False
 
@@ -130,7 +131,8 @@ def load(path: str | Path | None = None) -> Config:
 
     cfg = Config()
     for key in (
-        "origin", "currency", "adults", "seat", "carry_on_bags", "max_stops",
+        "origin", "currency", "adults", "seat", "carry_on_bags",
+        "checked_bags", "max_stops",
         "exclude_basic_economy", "max_total", "realert_drop", "new_best_drop",
         "return_dates", "min_nights", "destinations", "rail_groups",
         "check_round_trip",
