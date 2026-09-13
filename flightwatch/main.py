@@ -66,6 +66,8 @@ def sweep(
             )
             inbound.extend(legs)
 
+    result.outbound_legs = len(outbound)
+    result.inbound_legs = len(inbound)
     result.legs_found = len(outbound) + len(inbound)
     log.info("legs: %d outbound, %d return", len(outbound), len(inbound))
 
