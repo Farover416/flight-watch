@@ -11,3 +11,4 @@
 {"ts": "2026-09-13T09:54:52Z", "searches_run": 5, "searches_failed": 0, "legs_found": 4, "cheapest": []}
 {"ts": "2026-09-13T10:10:11Z", "searches_run": 5, "searches_failed": 0, "legs_found": 4, "outbound_legs": 4, "inbound_legs": 0, "cheapest": []}
 {"ts": "2026-09-13T10:16:05Z", "searches_run": 10, "searches_failed": 0, "legs_found": 3, "outbound_legs": 3, "inbound_legs": 0, "cheapest": []}
+{"ts": "2026-09-13T10:27:44Z", "searches_run": 5, "searches_failed": 0, "searches_unparsed": 4, "legs_found": 3, "outbound_legs": 3, "inbound_legs": 0, "cheapest": []}
