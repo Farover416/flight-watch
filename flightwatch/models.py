@@ -4,7 +4,7 @@ from __future__ import annotations
 
 import urllib.parse
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, time, timedelta
 from typing import Iterable
 
 GOOGLE_FLIGHTS = "https://www.google.com/travel/flights"
@@ -26,6 +26,23 @@ class Layover:
     def length(self) -> str:
         hours, minutes = divmod(self.minutes, 60)
         return f"{hours}h{minutes:02d}m" if hours else f"{minutes}m"
+
+    def daylight_minutes(self, from_hour: int, to_hour: int) -> int:
+        """Minutes of this stop that land in usable city hours.
+
+        Counted across every day the stop spans, so an overnight stop that runs
+        into the morning still earns credit for the morning part.
+        """
+        total = 0
+        day = self.start.date()
+        while day <= self.end.date():
+            midnight = datetime.combine(day, time())
+            window_start = midnight + timedelta(hours=from_hour)
+            window_end = midnight + timedelta(hours=to_hour)
+            overlap = min(self.end, window_end) - max(self.start, window_start)
+            total += max(0, int(overlap.total_seconds() // 60))
+            day += timedelta(days=1)
+        return total
 
     def describe(self, name: str | None = None) -> str:
         return f"{name or self.airport} {self.length}"
