@@ -249,11 +249,18 @@ def _decode_payload(text: str) -> tuple[ResultList, int]:
         raise ValueError(f"itinerary list is a {type(entries).__name__}")
 
     skipped = 0
+    why: str | None = None
     for entry in entries or []:
         try:
             results.append(_decode_itinerary(entry))
-        except Exception:
+        except Exception as exc:
             skipped += 1
+            if why is None:
+                why = f"{type(exc).__name__}: {exc}"
+    if skipped:
+        log.debug("skipped %d of %d itineraries, first because %s",
+                  skipped, len(entries), why)
+        _skip_reasons[why or "?"] = _skip_reasons.get(why or "?", 0) + 1
     return results, skipped
 
 
@@ -315,6 +322,9 @@ def _parse_results(html: str):
 # flights, and the run needs to say so out loud.
 _unreadable = 0
 _skipped = 0
+# Why itineraries got skipped, counted by reason, so a run can say whether it
+# is dropping junk entries or dropping fares.
+_skip_reasons: dict[str, int] = {}
 
 
 def unreadable_count() -> int:
@@ -325,10 +335,15 @@ def skipped_count() -> int:
     return _skipped
 
 
+def skip_reasons() -> dict[str, int]:
+    return dict(_skip_reasons)
+
+
 def reset_unreadable() -> None:
     global _unreadable, _skipped
     _unreadable = 0
     _skipped = 0
+    _skip_reasons.clear()
 
 
 def _fetch(cfg, query):
