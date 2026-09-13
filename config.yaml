@@ -8,10 +8,12 @@ currency: SGD
 adults: 1
 seat: economy
 
-# 1 = the price the watcher compares against your budget includes the
-# estimated carry-on fee, so a fare that "looks" cheap but charges for cabin
-# baggage is scored honestly.
+# The price compared against your budget includes the estimated bag fees, so a
+# fare that "looks" cheap but charges for baggage is scored honestly. One
+# checked bag is assumed - winter clothes do not fit in a cabin bag - plus the
+# cabin bag itself, which most carriers include free anyway.
 carry_on_bags: 1
+checked_bags: 1
 max_stops: 1
 exclude_basic_economy: false
 
@@ -25,7 +27,7 @@ realert_drop: 20
 new_best_drop: 40
 
 # --- dates ------------------------------------------------------------------
-# Outbound. "night" on the 18th is enforced as a departure at or after 17:00.
+# Outbound. "night" on the 18th is enforced as a departure at or after 21:00.
 outbound:
   - date: "2026-12-18"
     earliest_departure_hour: 21   # "night" = 9pm onwards, to get there from work
