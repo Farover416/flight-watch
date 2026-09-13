@@ -82,8 +82,9 @@ destinations:
 # overlap (Xi'an sits in both the Sichuan and the northwest group), which lets
 # sensible chains through without listing every pair.
 #
-# Cities in NO group can only be flown round-trip: Okinawa and Jeju are
-# islands, so there is no train off them.
+# A city in NO group can only be flown round-trip. Jeju counts as connected
+# to the mainland - ferry, plus Seoul-Jeju is the cheapest hop in Asia - but
+# there is nothing comparable off Okinawa.
 rail_groups:
   # --- China ---
   yangtze_delta:     [SHA, HGH, NKG, NGB, WUX, CZX, HFE, WNZ, YTY]
@@ -99,8 +100,8 @@ rail_groups:
   # --- Japan (Shinkansen; Hokkaido is 8h from Tokyo so it stands alone) ---
   honshu_kyushu:     [TYO, NGO, OSA, OKJ, HIJ, FUK, KMJ, KOJ, TAK, SDJ]
   hokkaido:          [CTS, HKD]
-  # --- Korea (KTX) ---
-  korea_mainland:    [SEL, PUS, TAE, KWJ, CJJ]
+  # --- Korea (KTX, plus the Jeju ferry / domestic hop) ---
+  korea:             [SEL, PUS, TAE, KWJ, CJJ, CJU]
 
 # --- engine -----------------------------------------------------------------
 # How many extended cities to fold into each run, on a rotating cursor.
