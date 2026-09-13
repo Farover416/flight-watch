@@ -60,6 +60,7 @@ class Config:
     extended_per_run: int = 12
 
     cities: dict[str, str] = field(default_factory=dict)
+    areas: dict[str, list[str]] = field(default_factory=dict)
     layover: Layover = field(default_factory=Layover)
 
     keep_per_search: int = 5
@@ -96,6 +97,39 @@ class Config:
             if code in tiers.get("priority", []) or code in tiers.get("extended", []):
                 return country
         return "?"
+
+    def resolve_destinations(self, terms) -> tuple[list[str], list[str]]:
+        """Turn what someone typed into searchable city codes.
+
+        Accepts an area name (Yunnan), a city name (Beijing) or a code (BJS),
+        because nobody remembers the codes. Returns (resolved, unrecognised).
+        """
+        by_area = {name.casefold(): codes for name, codes in self.areas.items()}
+        by_code = {code.casefold(): code for code in self.all_destinations}
+        by_name: dict[str, str] = {}
+        for code in self.all_destinations:
+            by_name.setdefault(self.city_name(code).casefold(), code)
+
+        resolved: list[str] = []
+        unknown: list[str] = []
+        for term in terms:
+            key = str(term).strip().casefold()
+            if not key:
+                continue
+            if key in by_area:
+                for member in by_area[key]:
+                    if member in self.all_destinations and member not in resolved:
+                        resolved.append(member)
+                continue
+            code = by_code.get(key) or by_name.get(key)
+            if code is None:
+                hits = sorted({c for name, c in by_name.items() if key in name})
+                code = hits[0] if len(hits) == 1 else None
+            if code is None:
+                unknown.append(str(term).strip())
+            elif code not in resolved:
+                resolved.append(code)
+        return resolved, unknown
 
     def checked_bag_fee(self, airlines) -> int:
         """Estimated one-way checked-bag fee for an itinerary, in SGD.
@@ -152,7 +186,7 @@ def load(path: str | Path | None = None) -> Config:
         "return_dates", "min_nights", "destinations", "rail_groups",
         "check_round_trip",
         "round_trip_candidates", "extended_per_run", "keep_per_search",
-        "report_top", "max_per_city_pair", "cities",
+        "report_top", "max_per_city_pair", "cities", "areas",
         "request_delay_seconds", "request_retries",
         "request_backoff_seconds",
     ):
