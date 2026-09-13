@@ -10,6 +10,8 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
+from . import compare
+
 API = "https://api.telegram.org/bot{token}/{method}"
 LIMIT = 3800  # Telegram's hard cap is 4096; leave room for formatting
 
@@ -177,6 +179,11 @@ def format_deals(cfg, deals, heading: str) -> str:
                 " <i>(return times not pinned — check arrival)</i>"
             )
         lines.append(f"  <i>{combo.nights} nights · {esc(combo.source)}</i>")
+        for heading, links in compare.for_combo(combo):
+            joined = " . ".join(
+                f'<a href="{esc(url)}">{esc(name)}</a>' for name, url in links
+            )
+            lines.append(f"  <i>{esc(heading)}:</i> {joined}")
         lines.append("")
 
     if any(c.source == "one-way pair" for c in deals):
@@ -184,5 +191,9 @@ def format_deals(cfg, deals, heading: str) -> str:
             "<i>“one-way pair” means two separate tickets — cheapest on low-cost "
             "carriers, but a delay on one leg is not protected by the other.</i>"
         )
-    lines.append(f"<i>Prices include an estimated carry-on bag. Budget S${cfg.max_total}.</i>")
+    lines.append(
+        f"<i>Prices include an estimated carry-on bag; budget S${cfg.max_total}. "
+        "Google's price is a ceiling - vouchers, card promos and cashback only "
+        "show at checkout, so the comparison links are worth the minute.</i>"
+    )
     return "\n".join(lines).rstrip()
