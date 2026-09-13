@@ -215,23 +215,38 @@ def _decode_payload(text: str) -> tuple[ResultList, int]:
         raise FlightsNotFound("no flights found; received error")
     payload = json.loads(data)
 
-    # Raises for anything that is not shaped like a results payload, which is
-    # what most of the ds: scripts on the page are.
-    entries = payload[3][0]
-    if entries is not None and not isinstance(entries, list):
-        raise ValueError(f"itinerary list is a {type(entries).__name__}")
+    # Most ds: scripts on the page are not the flights payload at all.
+    if not isinstance(payload, list) or len(payload) <= 7:
+        raise ValueError("not a flights payload")
 
     results = ResultList()
+    directory = _at(_at(payload, 7), 1)
     alliances, airlines = [], []
     try:
-        alliances = [Alliance(code=c, name=n) for c, n in payload[7][1][0]]
+        alliances = [Alliance(code=c, name=n) for c, n in directory[0]]
     except Exception:  # nice-to-have; never worth losing the fares over
         pass
     try:
-        airlines = [Airline(code=c, name=n) for c, n in payload[7][1][1]]
+        airlines = [Airline(code=c, name=n) for c, n in directory[1]]
     except Exception:
         pass
     results.metadata = JsMetadata(alliances=alliances, airlines=airlines)
+
+    section = _at(payload, 3)
+    if section is None:
+        # Google nulls the whole results section when it has nothing for this
+        # route and date. That is a real "no flights" - but only believe it on
+        # a payload that is otherwise a flights payload, which the airline
+        # directory establishes. Guessing wrong here means silently reporting
+        # an empty region, which is the failure this whole path exists to stop.
+        if not airlines:
+            raise ValueError("no results section and no airline directory")
+        log.info("empty results section (%d airlines listed)", len(airlines))
+        return results, 0
+
+    entries = _at(section, 0)
+    if entries is not None and not isinstance(entries, list):
+        raise ValueError(f"itinerary list is a {type(entries).__name__}")
 
     skipped = 0
     for entry in entries or []:
