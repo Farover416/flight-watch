@@ -108,7 +108,7 @@ def sweep(
 
 
 def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
-           dry_run: bool, always_summarise: bool) -> int:
+           dry_run: bool) -> int:
     def deliver(text: str) -> None:
         plain = (text.replace("<b>", "").replace("</b>", "")
                  .replace("<i>", "").replace("</i>", ""))
@@ -135,47 +135,41 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         store.save()
         return 1
 
+    # Every run reports what it actually found. Suppressing fares because an
+    # earlier run already mentioned them hid the cheapest ones and surfaced
+    # worse alternatives, which is the opposite of useful.
     under_budget = [c for c in result.combos if c.total <= cfg.max_total]
-    fresh = [c for c in under_budget if store.is_new_deal(c, cfg.realert_drop)]
-
     previous_best = store.best_total()
     if result.combos:
         store.update_best(result.combos[0])
-    new_best = (
-        result.combos
-        and previous_best is not None
-        and result.combos[0].total <= previous_best - cfg.new_best_drop
-    )
 
-    if fresh:
-        items = present.prepare(cfg, fresh)
-        extra = f", best {len(items)} shown" if len(items) < len(fresh) else ""
+    if not result.combos:
+        log.info("no valid trips found this run")
+        deliver(
+            f"No trips matched this run - {result.searches_run} searches, "
+            f"{result.searches_failed} failed."
+        )
+        store.append_history(result)
+        store.save()
+        return 0
+
+    items = present.prepare(cfg, under_budget or result.combos)
+    if under_budget:
         heading = (
-            f"🔥 {len(fresh)} new fare(s) under S${cfg.max_total}{extra} — "
-            f"Singapore ⇄ China / Korea / Japan"
-        )
-        deliver(format_deals(cfg, items, heading))
-        for combo in fresh:
-            store.record_alert(combo)
-    elif new_best:
-        deliver(
-            format_deals(
-                cfg,
-                present.prepare(cfg, result.combos)[:3],
-                f"📉 New cheapest so far: S${result.combos[0].total} "
-                f"(was S${previous_best})",
-            )
-        )
-    elif always_summarise:
-        deliver(
-            format_deals(
-                cfg,
-                present.prepare(cfg, result.combos),
-                f"Cheapest right now (budget S${cfg.max_total})",
-            )
+            f"🔥 {len(under_budget)} fare(s) under S${cfg.max_total}, "
+            f"best {len(items)} - Singapore ⇄ China / Korea / Japan"
         )
     else:
-        log.info("nothing new to report")
+        heading = (
+            f"Nothing under S${cfg.max_total} this run - "
+            f"cheapest {len(items)} right now"
+        )
+    if previous_best is not None and result.combos[0].total < previous_best:
+        heading += f" · new low, was S${previous_best}"
+
+    deliver(format_deals(cfg, items, heading))
+    for combo in under_budget:
+        store.record_alert(combo)
 
     store.append_history(result)
     store.save()
@@ -188,7 +182,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--dry-run", action="store_true",
                         help="print instead of sending to Telegram")
     parser.add_argument("--summary", action="store_true",
-                        help="always report the current cheapest, not only new deals")
+                        help="no-op: every run now reports the current cheapest")
     parser.add_argument("--only", default="",
                         help="comma-separated city codes, for a quick test run")
     parser.add_argument("--no-round-trip", action="store_true")
@@ -224,7 +218,7 @@ def main(argv: list[str] | None = None) -> int:
     result = sweep(cfg, only=only or None, destinations=destinations,
                    round_trip=not args.no_round_trip)
     return report(cfg, result, store, telegram,
-                  dry_run=args.dry_run, always_summarise=args.summary)
+                  dry_run=args.dry_run)
 
 
 if __name__ == "__main__":
