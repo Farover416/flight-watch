@@ -7,7 +7,7 @@ import logging
 import sys
 from datetime import datetime
 
-from . import combine, config
+from . import combine, config, present
 from .models import Leg, SweepResult
 from .notify import NoChatYet, Telegram, format_deals
 from .search import search_one_way, search_round_trip
@@ -148,20 +148,20 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
     )
 
     if fresh:
-        shown = min(len(fresh), cfg.report_top)
-        extra = f" (top {shown} of {len(fresh)})" if len(fresh) > shown else ""
+        items = present.prepare(cfg, fresh)
+        extra = f", best {len(items)} shown" if len(items) < len(fresh) else ""
         heading = (
             f"🔥 {len(fresh)} new fare(s) under S${cfg.max_total}{extra} — "
-            f"SIN ⇄ China / Korea / Japan"
+            f"Singapore ⇄ China / Korea / Japan"
         )
-        deliver(format_deals(cfg, fresh[: cfg.report_top], heading))
+        deliver(format_deals(cfg, items, heading))
         for combo in fresh:
             store.record_alert(combo)
     elif new_best:
         deliver(
             format_deals(
                 cfg,
-                result.best(3),
+                present.prepare(cfg, result.combos)[:3],
                 f"📉 New cheapest so far: S${result.combos[0].total} "
                 f"(was S${previous_best})",
             )
@@ -170,7 +170,7 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         deliver(
             format_deals(
                 cfg,
-                result.best(cfg.report_top),
+                present.prepare(cfg, result.combos),
                 f"Cheapest right now (budget S${cfg.max_total})",
             )
         )
