@@ -13,7 +13,28 @@ seat: economy
 # checked bag is assumed - winter clothes do not fit in a cabin bag - plus the
 # cabin bag itself, which most carriers include free anyway.
 carry_on_bags: 1
-checked_bags: 1
+# Google Flights accepts a checked-bag parameter but IGNORES it - verified in a
+# browser on 13 Sep 2026: the encoded URL carries the flag, yet the filter chip
+# never appears and the price does not move. So checked_bags stays 0 and the fee
+# is added below instead.
+checked_bags: 0
+
+# Estimated checked-bag fee in SGD, per one-way leg, for carriers that charge.
+# Anything not listed is assumed to include a bag in the fare - true of the
+# full-service Chinese carriers, Cathay, Thai Lion and Batik. Matching is on the
+# airline name, case-insensitive substring. Where an itinerary mixes carriers
+# the largest fee is used. These are estimates: confirm at checkout.
+checked_bag_fees:
+  scoot: 50
+  vietjet: 40
+  airasia: 45
+  spring airlines: 40
+  jeju air: 45
+  t'way: 45
+  peach: 45
+  zipair: 55
+  cebu pacific: 45
+  peach aviation: 45
 max_stops: 1
 exclude_basic_economy: false
 
