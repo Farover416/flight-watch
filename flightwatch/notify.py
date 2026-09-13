@@ -10,7 +10,7 @@ import urllib.parse
 import urllib.request
 from pathlib import Path
 
-from . import compare
+from . import compare, present
 
 API = "https://api.telegram.org/bot{token}/{method}"
 LIMIT = 3800  # Telegram's hard cap is 4096; leave room for formatting
@@ -155,30 +155,60 @@ def esc(value) -> str:
     return html.escape(str(value), quote=False)
 
 
-def format_deals(cfg, deals, heading: str) -> str:
+def leg_line(cfg, leg) -> str:
+    """One flight, named by city rather than airport code."""
+    if leg.layovers:
+        stops = "via " + ", ".join(
+            stop.describe(cfg.city_name(stop.airport)) for stop in leg.layovers
+        )
+    else:
+        stops = "direct" if leg.stops == 0 else f"{leg.stops} stop"
+    return (
+        f"{esc(cfg.city_name(leg.from_airport))} → {esc(cfg.city_name(leg.to_airport))}"
+        f"  {leg.depart:%d %b %H:%M} → {leg.arrive:%d %b %H:%M}"
+        f"  ({esc(stops)}, {esc(leg.airline_label)})"
+    )
+
+
+def format_deals(cfg, items, heading: str) -> str:
+    """Render (trip, alternatives) pairs as produced by present.prepare."""
     lines = [f"<b>{esc(heading)}</b>", ""]
-    for combo in deals:
-        tag = ""
-        if combo.is_open_jaw:
+    for combo, alternatives in items:
+        landed = cfg.city_name(combo.out.search_to)
+        home_from = cfg.city_name(combo.back_city)
+        open_jaw = combo.back_city != combo.out.search_to
+
+        where, tag = landed, ""
+        if open_jaw:
+            where = f"{landed} → {home_from}"
             shared = cfg.rail_groups_of(combo.out.search_to) & cfg.rail_groups_of(
-                combo.back.search_from if combo.back else combo.out.search_to
+                combo.back_city
             )
-            where = next(iter(sorted(shared)), "").replace("_", " ")
-            tag = f" · open-jaw, train across {where}" if where else " · open-jaw"
+            group = next(iter(sorted(shared)), "").replace("_", " ")
+            tag = f" · train across {group}" if group else ""
+
         links = " · ".join(
             f'<a href="{esc(url)}">{esc(label)}</a>'
             for label, url in combo.booking_urls(cfg)
         )
-        lines.append(f"<b>S${combo.total}</b> — {esc(combo.country)}{tag}  {links}")
-        lines.append(f"  ✈ {esc(combo.out.describe())}")
+        lines.append(f"<b>S${combo.total}</b> — {esc(where)}{tag}  {links}")
+        lines.append(f"  ✈ {leg_line(cfg, combo.out)}")
         if combo.back is not None:
-            lines.append(f"  ↩ {esc(combo.back.describe())}")
+            lines.append(f"  ↩ {leg_line(cfg, combo.back)}")
         else:
             lines.append(
-                f"  ↩ {esc(combo.back_from)}→{esc(cfg.origin)} {esc(combo.back_date)}"
+                f"  ↩ {esc(home_from)} → {esc(cfg.city_name(cfg.origin))}  "
+                f"{esc(present.day_label(combo.back_date))}"
                 " <i>(return times not pinned — check arrival)</i>"
             )
         lines.append(f"  <i>{combo.nights} nights · {esc(combo.source)}</i>")
+
+        if alternatives:
+            shown = [present.alternative_label(combo, a) for a in alternatives[:4]]
+            more = len(alternatives) - len(shown)
+            also = "; ".join(shown) + (f"; +{more} more" if more > 0 else "")
+            lines.append(f"  <i>also: {esc(also)}</i>")
+
         for group_name, group_links in compare.for_combo(combo):
             joined = " . ".join(
                 f'<a href="{esc(url)}">{esc(name)}</a>' for name, url in group_links
@@ -186,7 +216,7 @@ def format_deals(cfg, deals, heading: str) -> str:
             lines.append(f"  <i>{esc(group_name)}:</i> {joined}")
         lines.append("")
 
-    if any(c.source == "one-way pair" for c in deals):
+    if any(c.source == "one-way pair" for c, _ in items):
         lines.append(
             "<i>“one-way pair” means two separate tickets — cheapest on low-cost "
             "carriers, but a delay on one leg is not protected by the other.</i>"
