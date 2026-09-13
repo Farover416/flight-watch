@@ -115,6 +115,9 @@ def sweep(
     if search.skipped_count():
         log.info("%d individual itineraries were skipped as unreadable",
                  search.skipped_count())
+        for reason, count in sorted(search.skip_reasons().items(),
+                                    key=lambda kv: -kv[1]):
+            log.info("  skip reason x%-4d %s", count, reason)
     log.info("combos: %d (cheapest S$%s)", len(result.combos),
              result.combos[0].total if result.combos else "-")
     return result
