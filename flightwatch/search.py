@@ -15,7 +15,8 @@ from fast_flights import (
     fetch_flights_html,
 )
 from fast_flights.exceptions import FlightsNotFound
-from fast_flights.parser import parse
+from fast_flights.parser import parse_js
+from selectolax.lexbor import LexborHTMLParser
 
 from .models import Layover, Leg
 
@@ -102,43 +103,118 @@ def _airline_names(codes, metadata) -> tuple[str, ...]:
 # the parse falls over with one of these rather than returning an empty list.
 NO_RESULTS_ERRORS = (TypeError, IndexError, KeyError, AttributeError)
 
-# ...but there are two very different reasons the results can be absent: the
-# route genuinely has no service, or Google served a block/consent page instead.
-# They raise the same exception, so the page itself has to be inspected. Getting
-# this wrong in the permissive direction would silently drop real fares, so
-# anything that does not clearly look like a full results page is retried.
+# Markers of a page Google served instead of results.
 THROTTLE_MARKERS = ("unusual traffic", "/sorry/", "captcha", "consent.google")
-MIN_RESULTS_PAGE_BYTES = 50_000
 
 
-def _is_real_results_page(html: str) -> bool:
-    head = html[:20_000].lower()
-    if any(marker in head for marker in THROTTLE_MARKERS):
-        return False
-    return len(html) >= MIN_RESULTS_PAGE_BYTES
+class NotAResultsPage(RuntimeError):
+    """Google served something other than a search-results page.
+
+    Worth retrying: a consent wall, a throttle page, a truncated response.
+    """
+
+
+class UnreadablePage(RuntimeError):
+    """A results page whose payload we could not decode.
+
+    Not worth retrying - the same request fetches the same page - but it must
+    never be confused with "no flights", which is what was happening before:
+    every one of these was recorded as an empty route, and roughly half of an
+    average sweep vanished that way.
+    """
+
+
+def _ds_payloads(tree):
+    """Google's data-callback scripts, keyed by name, ds:1 first.
+
+    Google ships the page's data in ``AF_initDataCallback`` script tags named
+    ds:0, ds:1, ds:2 ... fast-flights only ever reads ds:1, which is where the
+    itineraries usually live but by no means always.
+    """
+    found = []
+    for node in tree.css("script"):
+        name = node.attributes.get("class") or ""
+        if name.startswith("ds:"):
+            found.append((name, node))
+    found.sort(key=lambda pair: pair[0] != "ds:1")
+    return found
+
+
+def _parse_results(html: str):
+    """Parse Google's itinerary payload, wherever on the page it landed.
+
+    The ds:1 path is tried first and untouched, so the common case behaves
+    exactly as fast-flights does. Only when that fails do we look through the
+    other payloads, keeping whichever yields the most itineraries.
+    """
+    tree = LexborHTMLParser(html)
+    payloads = _ds_payloads(tree)
+    if not payloads:
+        marker = next((m for m in THROTTLE_MARKERS if m in html[:20_000].lower()), None)
+        raise NotAResultsPage(
+            f"no ds: payload in {len(html)} bytes"
+            + (f" ({marker})" if marker else "")
+        )
+
+    first_error: str | None = None
+    best = None
+    for name, node in payloads:
+        text = node.text()
+        if "data:" not in text:
+            continue
+        try:
+            parsed = parse_js(text)
+        except FlightsNotFound:
+            raise
+        except Exception as exc:
+            if first_error is None:
+                first_error = f"{name} {type(exc).__name__}: {exc}"
+            continue
+        if name == "ds:1":
+            return parsed  # the usual place; trust it even when it is empty
+        if best is None or len(parsed) > len(best):
+            best = parsed
+    if best is not None:
+        return best
+
+    raise UnreadablePage(
+        f"{len(payloads)} payload(s) [{', '.join(n for n, _ in payloads)}] "
+        f"in {len(html)} bytes, none parsed; first error: {first_error}"
+    )
+
+
+# How many results pages this process could see but not read. A sweep that
+# cannot decode half its pages has not discovered that the world has no
+# flights, and the run needs to say so out loud.
+_unreadable = 0
+
+
+def unreadable_count() -> int:
+    return _unreadable
+
+
+def reset_unreadable() -> None:
+    global _unreadable
+    _unreadable = 0
 
 
 def _fetch(cfg, query):
     """Fetch with retries. Returns a ResultList, or None for no flights."""
+    global _unreadable
     last_error: Exception | None = None
     for attempt in range(cfg.request_retries + 1):
-        html: str | None = None
         try:
             html = fetch_flights_html(query, proxy=cfg.proxy)
-            return parse(html)
+            return _parse_results(html)
         except FlightsNotFound:
             return None  # a genuine "no flights on this route/date"
-        except NO_RESULTS_ERRORS as exc:
-            if html is not None and _is_real_results_page(html):
-                # A full page that simply has no flights on it. Not a failure,
-                # and retrying it would only burn 24 seconds of backoff.
-                log.info("no flights on this route/date (%d byte page)", len(html))
-                return None
+        except UnreadablePage as exc:
+            _unreadable += 1
+            log.warning("UNREADABLE results page: %s", exc)
+            return None
+        except (NotAResultsPage, *NO_RESULTS_ERRORS) as exc:
             last_error = exc
-            log.warning(
-                "parse failed on a %s page - treating as blocked, not empty",
-                "short" if html is None else f"{len(html)} byte",
-            )
+            log.warning("not a results page - retrying (%s)", exc)
         except Exception as exc:  # network, rate limit
             last_error = exc
         if attempt < cfg.request_retries:
