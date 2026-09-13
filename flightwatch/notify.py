@@ -228,7 +228,8 @@ def format_deals(cfg, items, heading: str) -> str:
             "carriers, but a delay on one leg is not protected by the other.</i>"
         )
     lines.append(
-        f"<i>Prices include an estimated carry-on bag; budget S${cfg.max_total}. "
+        f"<i>Prices include an estimated 1 checked bag + cabin bag; "
+        f"budget S${cfg.max_total}. "
         "Google's price is a ceiling - vouchers, card promos and cashback only "
         "show at checkout, so the comparison links are worth the minute.</i>"
     )
