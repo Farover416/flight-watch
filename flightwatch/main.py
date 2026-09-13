@@ -7,7 +7,7 @@ import logging
 import sys
 from datetime import datetime
 
-from . import combine, config, present
+from . import combine, config, present, search
 from .models import Leg, SweepResult
 from .notify import NoChatYet, Telegram, format_deals
 from .search import search_one_way, search_round_trip
@@ -27,6 +27,7 @@ def sweep(
     elif destinations is None:
         destinations = cfg.priority_destinations
     result = SweepResult(started=datetime.utcnow())
+    search.reset_unreadable()
 
     outbound: list[Leg] = []
     inbound: list[Leg] = []
@@ -103,7 +104,14 @@ def sweep(
         groups.append(combine.round_trip_combos(cfg, quotes))
 
     result.combos = combine.merge(cfg, *groups)
+    result.searches_unparsed = search.unreadable_count()
     result.finished = datetime.utcnow()
+    if result.searches_unparsed:
+        log.warning(
+            "%d of %d searches returned a page we could not read - those "
+            "routes are unknown, not empty",
+            result.searches_unparsed, result.searches_run,
+        )
     log.info("combos: %d (cheapest S$%s)", len(result.combos),
              result.combos[0].total if result.combos else "-")
     return result
@@ -128,9 +136,10 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         if store.should_warn_blocked():
             deliver(
                 "<b>⚠ Flight watcher is not getting results</b>\n\n"
-                f"{result.searches_run} searches ran, none returned a fare. "
-                "Google Flights is probably blocking this runner's IP. "
-                "Running the same script from your laptop usually fixes it."
+                f"{result.blind_searches} of {result.searches_run} searches "
+                "came back with nothing readable. Google Flights is probably "
+                "blocking this runner's IP. Running the same script from your "
+                "laptop usually fixes it."
             )
             store.record_blocked_warning()
         store.append_history(result)
@@ -147,10 +156,19 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
 
     if not result.combos:
         log.info("no valid trips found this run")
-        deliver(
+        note = (
             f"No trips matched this run - {result.searches_run} searches, "
             f"{result.searches_failed} failed."
         )
+        if result.searches_unparsed:
+            # "Nothing found" and "could not look" are different answers, and
+            # only one of them means you should stop hoping.
+            note += (
+                f"\n\n{result.searches_unparsed} of them came back as a page "
+                "that could not be read, so those routes are unknown rather "
+                "than empty."
+            )
+        deliver(note)
         store.append_history(result)
         store.save()
         return 0
