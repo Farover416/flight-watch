@@ -62,10 +62,12 @@ def _layovers(segments) -> tuple[Layover, ...]:
 
 
 def layovers_ok(cfg, layovers) -> bool:
-    """Quick, or long enough in daylight to go into the city. Nothing between.
+    """Quick, or enough usable daytime to go into the city. Nothing between.
 
-    Rejects the tight-to-impossible connection, the overnight terminal sit, and
-    the day-and-a-half "one stop" that is really two trips.
+    A long stop is judged on how many hours of it fall in city hours, not on
+    whether it sits tidily inside them - landing at 05:00 is fine, you just wait
+    for the place to wake up. What it must not be is a night spent in a terminal
+    to buy a few daylight hours, so the time outside city hours is capped too.
     """
     rules = cfg.layover
     for stop in layovers:
@@ -76,11 +78,10 @@ def layovers_ok(cfg, layovers) -> bool:
             continue
         if not rules.explore_min_minutes <= minutes <= rules.explore_max_minutes:
             return False
-        if stop.start.date() != stop.end.date():
+        daylight = stop.daylight_minutes(rules.day_from_hour, rules.day_to_hour)
+        if daylight < rules.min_daylight_minutes:
             return False
-        if stop.start.hour < rules.explore_from_hour:
-            return False
-        if (stop.end.hour, stop.end.minute) > (rules.explore_to_hour, 0):
+        if minutes - daylight > rules.max_dead_minutes:
             return False
     return True
 
