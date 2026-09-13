@@ -91,15 +91,27 @@ def _airline_names(codes, metadata) -> tuple[str, ...]:
     return tuple(lookup.get(code, code) for code in (codes or []))
 
 
+# fast-flights' parser assumes Google returned flight results. When it did not
+# - an unserved route, a date with no service - the parse falls over with one of
+# these rather than returning an empty list. That is a "no flights" answer, not
+# a failure, so it must not be retried: each pointless retry costs 24 seconds of
+# backoff, and on a sweep covering small Chinese cities there are a hundred of
+# them.
+NO_RESULTS_ERRORS = (TypeError, IndexError, KeyError, AttributeError)
+
+
 def _fetch(cfg, query):
-    """Fetch with retries. Returns a ResultList or None."""
+    """Fetch with retries. Returns a ResultList, or None for no flights."""
     last_error: Exception | None = None
     for attempt in range(cfg.request_retries + 1):
         try:
             return get_flights(query, proxy=cfg.proxy)
         except FlightsNotFound:
             return None  # a genuine "no flights on this route/date"
-        except Exception as exc:  # network, parse, rate limit
+        except NO_RESULTS_ERRORS as exc:
+            log.info("no flights on this route/date (%s)", exc)
+            return None
+        except Exception as exc:  # network, rate limit
             last_error = exc
             if attempt < cfg.request_retries:
                 wait = cfg.request_backoff_seconds * (attempt + 1)
