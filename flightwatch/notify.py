@@ -179,11 +179,11 @@ def format_deals(cfg, deals, heading: str) -> str:
                 " <i>(return times not pinned — check arrival)</i>"
             )
         lines.append(f"  <i>{combo.nights} nights · {esc(combo.source)}</i>")
-        for heading, links in compare.for_combo(combo):
+        for group_name, group_links in compare.for_combo(combo):
             joined = " . ".join(
-                f'<a href="{esc(url)}">{esc(name)}</a>' for name, url in links
+                f'<a href="{esc(url)}">{esc(name)}</a>' for name, url in group_links
             )
-            lines.append(f"  <i>{esc(heading)}:</i> {joined}")
+            lines.append(f"  <i>{esc(group_name)}:</i> {joined}")
         lines.append("")
 
     if any(c.source == "one-way pair" for c in deals):
