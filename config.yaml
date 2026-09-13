@@ -95,7 +95,9 @@ destinations:
        # north + northeast
        SHE, DLC, HRB, CGQ, TYN, SJW, HET, YNJ,
        # northwest
-       LHW, INC, XNN]
+       LHW, INC, XNN,
+       # Yunnan, for a province-wide check (all rail-linked to Kunming)
+       LJG, DLU, JHG]
 
 # --- open-jaw rules ---------------------------------------------------------
 # You can fly home from a different city than you landed in, but only somewhere
@@ -118,6 +120,8 @@ rail_groups:
   sichuan_chongqing: [CTU, CKG, XIY]
   northwest:         [XIY, LHW, INC, XNN, TYN, HET]
   southwest:         [KMG, KWE, NNG, KWL, LZH, BHY]
+  # Kunming-Dali 2h, Kunming-Lijiang 3h, Kunming-Xishuangbanna 3.5h
+  yunnan:            [KMG, LJG, DLU, JHG]
   northeast:         [SHE, DLC, CGQ, HRB, YNJ]
   hainan:            [HAK, SYX]
   # --- Japan (Shinkansen; Hokkaido is 8h from Tokyo so it stands alone) ---
@@ -125,6 +129,19 @@ rail_groups:
   hokkaido:          [CTS, HKD]
   # --- Korea (KTX, plus the Jeju ferry / domestic hop) ---
   korea:             [SEL, PUS, TAE, KWJ, CJJ, CJU]
+
+# --- areas ------------------------------------------------------------------
+# Named groups for a one-shot check of a whole region: --only Yunnan searches
+# every airport listed here and lets them open-jaw against each other, so you
+# get one list for the area rather than one per airport. Chengdu and Chongqing
+# are an hour apart by train, so either name searches both - fly into whichever
+# is cheaper and home from the other.
+areas:
+  Yunnan:    [KMG, LJG, DLU, JHG]
+  Beijing:   [BJS]
+  Chengdu:   [CTU, CKG]
+  Chongqing: [CTU, CKG]
+  Sichuan:   [CTU, CKG]
 
 # --- engine -----------------------------------------------------------------
 # How many extended cities to fold into each run, on a rotating cursor.
@@ -223,6 +240,9 @@ cities:
   NKG: Nanjing
   XIY: Xi'an
   KMG: Kunming
+  LJG: Lijiang
+  DLU: Dali
+  JHG: Xishuangbanna
   FOC: Fuzhou
   # China - east
   TAO: Qingdao
