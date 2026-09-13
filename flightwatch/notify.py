@@ -158,9 +158,15 @@ def esc(value) -> str:
 def leg_line(cfg, leg) -> str:
     """One flight, named by city rather than airport code."""
     if leg.layovers:
-        stops = "via " + ", ".join(
-            stop.describe(cfg.city_name(stop.airport)) for stop in leg.layovers
-        )
+        rules = cfg.layover
+        parts = []
+        for stop in leg.layovers:
+            text = stop.describe(cfg.city_name(stop.airport))
+            if stop.minutes > rules.short_max_minutes:
+                out = stop.daylight_minutes(rules.day_from_hour, rules.day_to_hour)
+                text += f", {out // 60}h out"
+            parts.append(text)
+        stops = "via " + ", ".join(parts)
     else:
         stops = "direct" if leg.stops == 0 else f"{leg.stops} stop"
     return (
