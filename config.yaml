@@ -135,20 +135,21 @@ max_per_city_pair: 3
 #   min_daylight_minutes of it falls between day_from_hour and day_to_hour, AND
 #   no more than max_dead_minutes falls outside those hours   (go into the city)
 #
-# The stop does not have to sit entirely inside day hours - landing at 05:00 is
-# fine, you just wait a couple of hours for the city to wake up. What matters is
-# how many usable hours you get outside, and that you are not camped in a
-# terminal all night to earn them. Times are local to the connecting airport;
-# direct flights always qualify.
+# The stop does not have to sit inside day hours at all - landing at 05:00 and
+# waiting for the city to open is fine, and so is an overnight stop that turns
+# into a full day out. What decides it is how many usable hours you actually
+# get. max_dead_minutes only rules out the absurd; explore_max_minutes is what
+# stops a "one stop" being a day and a half. Times are local to the connecting
+# airport; direct flights always qualify.
 layover:
   min_minutes: 75
   short_max_minutes: 240
   explore_min_minutes: 420
-  explore_max_minutes: 960
-  day_from_hour: 8          # when somewhere to eat is actually open
+  explore_max_minutes: 1080  # 18h ceiling - kills the 28h "one stop"
+  day_from_hour: 8           # when somewhere to eat is actually open
   day_to_hour: 21
-  min_daylight_minutes: 300 # at least 5 hours genuinely out there
-  max_dead_minutes: 180     # at most 3 hours killed outside day hours
+  min_daylight_minutes: 300  # at least 5 hours genuinely out there
+  max_dead_minutes: 780      # one night waiting is fine, two is not
 
 # --- names -------------------------------------------------------------------
 # Alerts show these instead of airport codes. Both city codes and the actual
