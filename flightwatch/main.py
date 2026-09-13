@@ -112,6 +112,9 @@ def sweep(
             "routes are unknown, not empty",
             result.searches_unparsed, result.searches_run,
         )
+    if search.skipped_count():
+        log.info("%d individual itineraries were skipped as unreadable",
+                 search.skipped_count())
     log.info("combos: %d (cheapest S$%s)", len(result.combos),
              result.combos[0].total if result.combos else "-")
     return result
