@@ -1,0 +1,93 @@
+name: flight watch
+
+on:
+  schedule:
+    # Every 8 hours. Times are UTC, so this lands ~09:00 / 17:00 / 01:00 SGT.
+    # The odd minute avoids GitHub's on-the-hour queue.
+    - cron: "17 1,9,17 * * *"
+  workflow_dispatch:
+    inputs:
+      summary:
+        description: "Send the current cheapest fares even if nothing is new"
+        type: boolean
+        default: true
+      only:
+        description: "Limit to these city codes (comma separated), e.g. TYO,SEL"
+        type: string
+        default: ""
+
+concurrency:
+  group: flight-watch
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - run: pip install -r requirements.txt
+
+      - name: Search for fares
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          # Optional - leave unset and the first run works the chat out from
+          # whoever has messaged the bot, then caches it in data/telegram.json.
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          # Optional: only needed if Google starts blocking GitHub's IPs.
+          FLIGHTWATCH_PROXY: ${{ secrets.FLIGHTWATCH_PROXY }}
+          SUMMARY: ${{ inputs.summary }}
+          ONLY: ${{ inputs.only }}
+        run: |
+          args=""
+          [ "$SUMMARY" = "true" ] && args="$args --summary"
+          [ -n "$ONLY" ] && args="$args --only $ONLY"
+          python -m flightwatch $args
+
+      - name: Save price history
+        if: always()
+        run: |
+          git config user.name  "flight-watch"
+          git config user.email "flight-watch@users.noreply.github.com"
+          mkdir -p data
+          git add data
+          if git diff --cached --quiet; then
+            echo "no price changes to record"
+          else
+            git commit -m "prices: $(date -u '+%Y-%m-%d %H:%M UTC')"
+            git pull --rebase --autostash origin "${GITHUB_REF_NAME}"
+            git push
+          fi
+
+      - name: Tell me if the run itself broke
+        if: failure()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          python - <<'PY'
+          import os, urllib.parse, urllib.request
+          token, chat = os.environ.get("TELEGRAM_BOT_TOKEN"), os.environ.get("TELEGRAM_CHAT_ID")
+          if token and chat:
+              run = "%s/%s/actions/runs/%s" % ("https://github.com",
+                                               os.environ["GITHUB_REPOSITORY"],
+                                               os.environ["GITHUB_RUN_ID"])
+              body = urllib.parse.urlencode({
+                  "chat_id": chat,
+                  "text": "flight watch run failed\n" + run,
+                  "disable_web_page_preview": "true",
+              }).encode()
+              urllib.request.urlopen(
+                  urllib.request.Request(
+                      "https://api.telegram.org/bot%s/sendMessage" % token, data=body),
+                  timeout=30)
+          PY
