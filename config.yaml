@@ -131,17 +131,24 @@ max_per_city_pair: 3
 # A stop qualifies if EITHER
 #   min_minutes <= length <= short_max_minutes                (just wait airside)
 #   OR
-#   explore_min_minutes <= length <= explore_max_minutes, and it starts no
-#   earlier than explore_from_hour, ends no later than explore_to_hour, and ends
-#   on the same day it started                                (go into the city)
-# Times are local to the connecting airport. Direct flights always qualify.
+#   explore_min_minutes <= length <= explore_max_minutes, AND at least
+#   min_daylight_minutes of it falls between day_from_hour and day_to_hour, AND
+#   no more than max_dead_minutes falls outside those hours   (go into the city)
+#
+# The stop does not have to sit entirely inside day hours - landing at 05:00 is
+# fine, you just wait a couple of hours for the city to wake up. What matters is
+# how many usable hours you get outside, and that you are not camped in a
+# terminal all night to earn them. Times are local to the connecting airport;
+# direct flights always qualify.
 layover:
   min_minutes: 75
   short_max_minutes: 240
   explore_min_minutes: 420
-  explore_max_minutes: 900
-  explore_from_hour: 7
-  explore_to_hour: 22
+  explore_max_minutes: 960
+  day_from_hour: 8          # when somewhere to eat is actually open
+  day_to_hour: 21
+  min_daylight_minutes: 300 # at least 5 hours genuinely out there
+  max_dead_minutes: 180     # at most 3 hours killed outside day hours
 
 # --- names -------------------------------------------------------------------
 # Alerts show these instead of airport codes. Both city codes and the actual
