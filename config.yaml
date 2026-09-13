@@ -1,0 +1,124 @@
+# ---------------------------------------------------------------------------
+# Year-end trip watcher: Singapore -> China / Korea / Japan, Dec 2026
+# Everything you might want to tweak lives in this file.
+# ---------------------------------------------------------------------------
+
+origin: SIN
+currency: SGD
+adults: 1
+seat: economy
+
+# 1 = the price the watcher compares against your budget includes the
+# estimated carry-on fee, so a fare that "looks" cheap but charges for cabin
+# baggage is scored honestly.
+carry_on_bags: 1
+max_stops: 1
+exclude_basic_economy: false
+
+# --- budget -----------------------------------------------------------------
+# Alert when a full return trip costs this or less.
+max_total: 900
+# Re-alert a deal you've already been told about only once it drops this much.
+realert_drop: 20
+# Also ping when the cheapest combination ever seen improves by this much,
+# even if it is still above max_total (so you can watch the trend).
+new_best_drop: 40
+
+# --- dates ------------------------------------------------------------------
+# Outbound. "night" on the 18th is enforced as a departure at or after 17:00.
+outbound:
+  - date: "2026-12-18"
+    earliest_departure_hour: 17
+  - date: "2026-12-19"
+    earliest_departure_hour: 0
+
+# Return flights may leave on any of these days...
+return_dates: ["2026-12-27", "2026-12-28", "2026-12-29"]
+# ...but you must be on the ground at Changi by this local time. Red-eyes that
+# land on the morning of the 30th are rejected automatically.
+arrive_home_by: "2026-12-30 01:00"
+
+# Minimum nights away, so a combination that flies you home too early is
+# filtered out before it reaches your phone.
+min_nights: 7
+
+# --- where ------------------------------------------------------------------
+# City codes cover every airport in that city (TYO = Narita + Haneda,
+# SEL = Incheon + Gimpo, SHA = Pudong + Hongqiao, BJS = Capital + Daxing,
+# CTU = Shuangliu + Tianfu).
+#
+# priority = searched on every single run.
+# extended = the long tail, searched a slice at a time on a rotation, so a
+#            hundred-odd cities stay affordable. Every extended city comes up
+#            roughly once a day. Move any city between the two lists freely.
+destinations:
+  Japan:
+    priority: [TYO, OSA, FUK, CTS, NGO, OKA]
+    extended: [HIJ, SDJ, KOJ, TAK, OKJ, KMJ, HKD]
+  Korea:
+    priority: [SEL, PUS]
+    extended: [CJU, TAE, KWJ, CJJ]
+  China:
+    priority: [SHA, BJS, CAN, SZX, HGH, CTU, CKG, XMN, NKG, XIY, KMG, FOC]
+    extended:
+      # Yangtze delta + eastern seaboard
+      [TAO, TSN, NGB, WNZ, WUX, CZX, TNA, HFE, YNT, YTY,
+       # south coast
+       JJN, ZUH, SWA, ZHA, NNG, BHY, LZH, KWL, KWE,
+       # Hainan
+       HAK, SYX,
+       # central
+       WUH, CSX, CGO, KHN, YIH, XFN, LYA, DYG,
+       # north + northeast
+       SHE, DLC, HRB, CGQ, TYN, SJW, HET, YNJ,
+       # northwest
+       LHW, INC, XNN]
+
+# --- open-jaw rules ---------------------------------------------------------
+# You can fly home from a different city than you landed in, but only somewhere
+# you could reasonably reach by train from where you landed. Each group below
+# is a set of cities within a few hours of each other by rail; a pairing is
+# allowed when both cities share at least one group. Groups deliberately
+# overlap (Xi'an sits in both the Sichuan and the northwest group), which lets
+# sensible chains through without listing every pair.
+#
+# Cities in NO group can only be flown round-trip: Okinawa and Jeju are
+# islands, so there is no train off them.
+rail_groups:
+  # --- China ---
+  yangtze_delta:     [SHA, HGH, NKG, NGB, WUX, CZX, HFE, WNZ, YTY]
+  north_china:       [BJS, TSN, SJW, TNA, TAO, YNT, TYN, CGO]
+  pearl_delta:       [CAN, SZX, ZUH, SWA, ZHA, CSX, WUH]
+  southeast_coast:   [XMN, FOC, JJN, SWA, WNZ, CAN, SZX]
+  central_china:     [WUH, CSX, CGO, KHN, YIH, XFN, LYA, DYG]
+  sichuan_chongqing: [CTU, CKG, XIY]
+  northwest:         [XIY, LHW, INC, XNN, TYN, HET]
+  southwest:         [KMG, KWE, NNG, KWL, LZH, BHY]
+  northeast:         [SHE, DLC, CGQ, HRB, YNJ]
+  hainan:            [HAK, SYX]
+  # --- Japan (Shinkansen; Hokkaido is 8h from Tokyo so it stands alone) ---
+  honshu_kyushu:     [TYO, NGO, OSA, OKJ, HIJ, FUK, KMJ, KOJ, TAK, SDJ]
+  hokkaido:          [CTS, HKD]
+  # --- Korea (KTX) ---
+  korea_mainland:    [SEL, PUS, TAE, KWJ, CJJ]
+
+# --- engine -----------------------------------------------------------------
+# How many extended cities to fold into each run, on a rotating cursor.
+extended_per_run: 12
+
+# Also run a true round-trip search for the most promising cities. One-way legs
+# price low-cost carriers correctly; full-service airlines often price a return
+# far below two one-ways, and this catches those. Only the cheapest few cities
+# from the one-way sweep are re-checked, so it costs a handful of searches
+# rather than one per city.
+check_round_trip: true
+round_trip_candidates: 6
+
+# Keep this many cheapest itineraries per individual search.
+keep_per_search: 5
+# How many deals to show in one message.
+report_top: 8
+
+request_delay_seconds: 3.0
+request_retries: 2
+request_backoff_seconds: 8.0

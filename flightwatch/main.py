@@ -1,0 +1,231 @@
+"""Entry point: sweep every route, combine, alert."""
+
+from __future__ import annotations
+
+import argparse
+import logging
+import sys
+from datetime import datetime
+
+from . import combine, config
+from .models import Leg, SweepResult
+from .notify import NoChatYet, Telegram, format_deals
+from .search import search_one_way, search_round_trip
+from .state import Store
+
+log = logging.getLogger("flightwatch")
+
+
+def sweep(
+    cfg,
+    only: list[str] | None = None,
+    round_trip: bool = True,
+    destinations: list[str] | None = None,
+) -> SweepResult:
+    if only:
+        destinations = [d for d in cfg.all_destinations if d in only]
+    elif destinations is None:
+        destinations = cfg.priority_destinations
+    result = SweepResult(started=datetime.utcnow())
+
+    outbound: list[Leg] = []
+    inbound: list[Leg] = []
+
+    def run(label, fn):
+        result.searches_run += 1
+        try:
+            found = fn()
+            log.info("%-28s %d result(s)", label, len(found))
+            return found
+        except Exception as exc:
+            result.searches_failed += 1
+            result.errors.append(f"{label}: {exc}")
+            log.warning("%-28s FAILED (%s)", label, exc)
+            return []
+
+    # --- outbound: Singapore -> each city, on each candidate departure day ---
+    for dest in destinations:
+        for day in cfg.outbound:
+            legs = run(
+                f"{cfg.origin}->{dest} {day.date}",
+                lambda d=dest, y=day: search_one_way(
+                    cfg, cfg.origin, d, y.date,
+                    earliest_departure_hour=y.earliest_departure_hour,
+                ),
+            )
+            outbound.extend(legs)
+
+    # --- return: each city -> Singapore, landing before the deadline ---------
+    for dest in destinations:
+        for date in cfg.return_dates:
+            legs = run(
+                f"{dest}->{cfg.origin} {date}",
+                lambda d=dest, dt=date: search_one_way(
+                    cfg, d, cfg.origin, dt, arrive_by=cfg.arrive_home_by
+                ),
+            )
+            inbound.extend(legs)
+
+    result.legs_found = len(outbound) + len(inbound)
+    log.info("legs: %d outbound, %d return", len(outbound), len(inbound))
+
+    one_way = combine.build_combos(cfg, outbound, inbound)
+    groups = [one_way]
+
+    # --- round-trip cross-check ---------------------------------------------
+    # Only for the cities the one-way sweep says are worth a second look, so
+    # this costs a handful of searches instead of one per city.
+    if round_trip and cfg.check_round_trip:
+        candidates: list[str] = []
+        for combo in one_way:
+            code = combo.out.search_to
+            if code not in candidates:
+                candidates.append(code)
+            if len(candidates) >= cfg.round_trip_candidates:
+                break
+        log.info("round-trip re-check: %s", ", ".join(candidates) or "(none)")
+
+        quotes: list[tuple[Leg, int, str]] = []
+        for dest in candidates:
+            for day in cfg.outbound:
+                for back_date in cfg.return_dates:
+                    found = run(
+                        f"RT {dest} {day.date}/{back_date}",
+                        lambda d=dest, y=day, b=back_date: search_round_trip(
+                            cfg, d, y.date, b,
+                            earliest_departure_hour=y.earliest_departure_hour,
+                        ),
+                    )
+                    quotes.extend((leg, total, back_date) for leg, total in found)
+        result.legs_found += len(quotes)
+        groups.append(combine.round_trip_combos(cfg, quotes))
+
+    result.combos = combine.merge(cfg, *groups)
+    result.finished = datetime.utcnow()
+    log.info("combos: %d (cheapest S$%s)", len(result.combos),
+             result.combos[0].total if result.combos else "-")
+    return result
+
+
+def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
+           dry_run: bool, always_summarise: bool) -> int:
+    def deliver(text: str) -> None:
+        plain = (text.replace("<b>", "").replace("</b>", "")
+                 .replace("<i>", "").replace("</i>", ""))
+        if dry_run or not telegram.configured:
+            print("\n" + plain)
+            return
+        try:
+            telegram.send(text)
+        except NoChatYet as exc:
+            log.warning("%s", exc)
+            print("\n" + plain)
+
+    if result.looks_blocked:
+        log.error("every search came back empty — Google Flights is likely blocking us")
+        if store.should_warn_blocked():
+            deliver(
+                "<b>⚠ Flight watcher is not getting results</b>\n\n"
+                f"{result.searches_run} searches ran, none returned a fare. "
+                "Google Flights is probably blocking this runner's IP. "
+                "Running the same script from your laptop usually fixes it."
+            )
+            store.record_blocked_warning()
+        store.append_history(result)
+        store.save()
+        return 1
+
+    under_budget = [c for c in result.combos if c.total <= cfg.max_total]
+    fresh = [c for c in under_budget if store.is_new_deal(c, cfg.realert_drop)]
+
+    previous_best = store.best_total()
+    if result.combos:
+        store.update_best(result.combos[0])
+    new_best = (
+        result.combos
+        and previous_best is not None
+        and result.combos[0].total <= previous_best - cfg.new_best_drop
+    )
+
+    if fresh:
+        shown = min(len(fresh), cfg.report_top)
+        extra = f" (top {shown} of {len(fresh)})" if len(fresh) > shown else ""
+        heading = (
+            f"🔥 {len(fresh)} new fare(s) under S${cfg.max_total}{extra} — "
+            f"SIN ⇄ China / Korea / Japan"
+        )
+        deliver(format_deals(cfg, fresh[: cfg.report_top], heading))
+        for combo in fresh:
+            store.record_alert(combo)
+    elif new_best:
+        deliver(
+            format_deals(
+                cfg,
+                result.best(3),
+                f"📉 New cheapest so far: S${result.combos[0].total} "
+                f"(was S${previous_best})",
+            )
+        )
+    elif always_summarise:
+        deliver(
+            format_deals(
+                cfg,
+                result.best(cfg.report_top),
+                f"Cheapest right now (budget S${cfg.max_total})",
+            )
+        )
+    else:
+        log.info("nothing new to report")
+
+    store.append_history(result)
+    store.save()
+    return 0
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(prog="flightwatch")
+    parser.add_argument("--config", default=None)
+    parser.add_argument("--dry-run", action="store_true",
+                        help="print instead of sending to Telegram")
+    parser.add_argument("--summary", action="store_true",
+                        help="always report the current cheapest, not only new deals")
+    parser.add_argument("--only", default="",
+                        help="comma-separated city codes, for a quick test run")
+    parser.add_argument("--no-round-trip", action="store_true")
+    parser.add_argument("--whoami", action="store_true",
+                        help="print your Telegram chat id and exit")
+    args = parser.parse_args(argv)
+
+    logging.basicConfig(
+        level=logging.INFO, format="%(asctime)s %(levelname)-7s %(message)s",
+        datefmt="%H:%M:%S", stream=sys.stdout,
+    )
+
+    cfg = config.load(args.config)
+    telegram = Telegram(cache_path=cfg.data_dir / "telegram.json")
+
+    if args.whoami:
+        print(telegram.whoami())
+        return 0
+
+    store = Store(cfg.data_dir)
+    only = [c.strip().upper() for c in args.only.split(",") if c.strip()]
+
+    destinations, next_cursor = cfg.destinations_for_run(store.rotation_cursor())
+    if not only:
+        log.info(
+            "this run: %d cities (%d priority + %d from the rotation of %d)",
+            len(destinations), len(cfg.priority_destinations),
+            len(destinations) - len(cfg.priority_destinations),
+            len(cfg.extended_destinations),
+        )
+        store.set_rotation_cursor(next_cursor)
+
+    result = sweep(cfg, only=only or None, destinations=destinations,
+                   round_trip=not args.no_round_trip)
+    return report(cfg, result, store, telegram,
+                  dry_run=args.dry_run, always_summarise=args.summary)
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
