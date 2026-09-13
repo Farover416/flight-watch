@@ -76,5 +76,8 @@
   "SZX/SZX/2026-12-19/2026-12-27/one-way pair": 770,
   "SZX/WUH/2026-12-19/2026-12-27/one-way pair": 870,
   "SZX/WUH/2026-12-19/2026-12-28/one-way pair": 870,
-  "SZX/WUH/2026-12-19/2026-12-29/one-way pair": 875
+  "SZX/WUH/2026-12-19/2026-12-29/one-way pair": 875,
+  "PEK/PEK/2026-12-19/2026-12-28/round-trip": 867,
+  "PEK/PEK/2026-12-19/2026-12-29/round-trip": 867,
+  "PEK/PEK/2026-12-19/2026-12-27/round-trip": 867
 }
