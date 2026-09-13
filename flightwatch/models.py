@@ -230,8 +230,18 @@ class SweepResult:
 
     @property
     def looks_blocked(self) -> bool:
-        """Every search came back empty or failed -> we are probably blocked."""
-        return self.searches_run > 0 and self.legs_found == 0
+        """Most searches ERRORED, rather than simply finding nothing.
+
+        Finding nothing is a real answer - a small region with no service
+        inside the date and layover rules returns zero legs and zero failures,
+        and warning about that would be a false alarm. Being blocked shows up
+        as searches raising, which _fetch now tells apart from an empty
+        results page.
+        """
+        return (
+            self.searches_run >= 5
+            and self.searches_failed >= self.searches_run * 0.8
+        )
 
     def best(self, n: int) -> list[Combo]:
         return sorted(self.combos, key=lambda c: c.total)[:n]
