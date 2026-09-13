@@ -11,6 +11,27 @@ GOOGLE_FLIGHTS = "https://www.google.com/travel/flights"
 
 
 @dataclass(frozen=True)
+class Layover:
+    """A stop between two flights, in the connecting airport's local time."""
+
+    airport: str
+    start: datetime
+    end: datetime
+
+    @property
+    def minutes(self) -> int:
+        return int((self.end - self.start).total_seconds() // 60)
+
+    @property
+    def length(self) -> str:
+        hours, minutes = divmod(self.minutes, 60)
+        return f"{hours}h{minutes:02d}m" if hours else f"{minutes}m"
+
+    def describe(self, name: str | None = None) -> str:
+        return f"{name or self.airport} {self.length}"
+
+
+@dataclass(frozen=True)
 class Leg:
     """One priced one-way itinerary (may contain several flight segments)."""
 
@@ -24,6 +45,7 @@ class Leg:
     stops: int
     airlines: tuple[str, ...]
     price: int
+    layovers: tuple[Layover, ...] = ()
 
     @property
     def date(self) -> str:
@@ -61,6 +83,11 @@ class Combo:
     @property
     def back_from(self) -> str:
         return self.back.from_airport if self.back else self.out.to_airport
+
+    @property
+    def back_city(self) -> str:
+        """City code you fly home from, as opposed to the airport."""
+        return self.back.search_from if self.back else self.out.search_to
 
     @property
     def back_verified(self) -> bool:
