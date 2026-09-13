@@ -108,7 +108,7 @@ def sweep(
 
 
 def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
-           dry_run: bool) -> int:
+           dry_run: bool, focus: str | None = None) -> int:
     def deliver(text: str) -> None:
         plain = (text.replace("<b>", "").replace("</b>", "")
                  .replace("<i>", "").replace("</i>", ""))
@@ -153,16 +153,17 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         store.save()
         return 0
 
+    where = focus or "Singapore ⇄ China / Korea / Japan"
     items = present.prepare(cfg, under_budget or result.combos)
     if under_budget:
         heading = (
             f"🔥 {len(under_budget)} fare(s) under S${cfg.max_total}, "
-            f"best {len(items)} - Singapore ⇄ China / Korea / Japan"
+            f"best {len(items)} - {where}"
         )
     else:
         heading = (
-            f"Nothing under S${cfg.max_total} this run - "
-            f"cheapest {len(items)} right now"
+            f"Nothing under S${cfg.max_total} - cheapest {len(items)} "
+            f"right now - {where}"
         )
     if previous_best is not None and result.combos[0].total < previous_best:
         heading += f" · new low, was S${previous_best}"
@@ -184,7 +185,8 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--summary", action="store_true",
                         help="no-op: every run now reports the current cheapest")
     parser.add_argument("--only", default="",
-                        help="comma-separated city codes, for a quick test run")
+                        help="check just these places - area, city or code, "
+                             "e.g. Yunnan or Beijing or CTU,CKG")
     parser.add_argument("--no-round-trip", action="store_true")
     parser.add_argument("--whoami", action="store_true",
                         help="print your Telegram chat id and exit")
@@ -203,7 +205,22 @@ def main(argv: list[str] | None = None) -> int:
         return 0
 
     store = Store(cfg.data_dir)
-    only = [c.strip().upper() for c in args.only.split(",") if c.strip()]
+    wanted = [t for t in args.only.split(",") if t.strip()]
+    only, unknown = cfg.resolve_destinations(wanted) if wanted else ([], [])
+    if unknown:
+        log.error("not a place I search: %s", ", ".join(unknown))
+    if wanted and not only:
+        log.error("nothing left to search - check the spelling")
+        return 2
+
+    focus = None
+    if only:
+        names = ", ".join(cfg.city_name(code) for code in only)
+        focus = f"Singapore ⇄ {names}"
+        # A focused check is about one place, so show the spread rather than
+        # capping at three options per city pair.
+        cfg.max_per_city_pair = cfg.report_top
+        log.info("checking %s only", names)
 
     destinations, next_cursor = cfg.destinations_for_run(store.rotation_cursor())
     if not only:
@@ -218,7 +235,7 @@ def main(argv: list[str] | None = None) -> int:
     result = sweep(cfg, only=only or None, destinations=destinations,
                    round_trip=not args.no_round_trip)
     return report(cfg, result, store, telegram,
-                  dry_run=args.dry_run)
+                  dry_run=args.dry_run, focus=focus)
 
 
 if __name__ == "__main__":
