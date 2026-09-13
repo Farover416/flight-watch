@@ -11,7 +11,7 @@ from typing import Sequence
 from fast_flights import FlightQuery, Passengers, create_query, get_flights
 from fast_flights.exceptions import FlightsNotFound
 
-from .models import Leg
+from .models import Layover, Leg
 
 log = logging.getLogger("flightwatch.search")
 
@@ -47,6 +47,42 @@ def _to_datetime(simple) -> datetime:
     year, month, day = simple.date
     hour, minute = simple.time
     return datetime(year, month, day, hour, minute)
+
+
+def _layovers(segments) -> tuple[Layover, ...]:
+    """Gaps between consecutive flights, in the connecting airport's local time."""
+    return tuple(
+        Layover(
+            airport=segments[i].to_airport.code,
+            start=_to_datetime(segments[i].arrival),
+            end=_to_datetime(segments[i + 1].departure),
+        )
+        for i in range(len(segments) - 1)
+    )
+
+
+def layovers_ok(cfg, layovers) -> bool:
+    """Quick, or long enough in daylight to go into the city. Nothing between.
+
+    Rejects the tight-to-impossible connection, the overnight terminal sit, and
+    the day-and-a-half "one stop" that is really two trips.
+    """
+    rules = cfg.layover
+    for stop in layovers:
+        minutes = stop.minutes
+        if minutes < rules.min_minutes:
+            return False
+        if minutes <= rules.short_max_minutes:
+            continue
+        if not rules.explore_min_minutes <= minutes <= rules.explore_max_minutes:
+            return False
+        if stop.start.date() != stop.end.date():
+            return False
+        if stop.start.hour < rules.explore_from_hour:
+            return False
+        if (stop.end.hour, stop.end.minute) > (rules.explore_to_hour, 0):
+            return False
+    return True
 
 
 def _airline_names(codes, metadata) -> tuple[str, ...]:
@@ -109,6 +145,9 @@ def search_one_way(
             continue
         if not isinstance(item.price, int) or item.price <= 0:
             continue
+        layovers = _layovers(segments)
+        if not layovers_ok(cfg, layovers):
+            continue
 
         legs.append(
             Leg(
@@ -122,6 +161,7 @@ def search_one_way(
                 stops=len(segments) - 1,
                 airlines=_airline_names(item.airlines, results.metadata),
                 price=item.price,
+                layovers=layovers,
             )
         )
 
@@ -169,6 +209,9 @@ def search_round_trip(
             continue
         if not isinstance(item.price, int) or item.price <= 0:
             continue
+        layovers = _layovers(segments)
+        if not layovers_ok(cfg, layovers):
+            continue
 
         leg = Leg(
             search_from=cfg.origin,
@@ -181,6 +224,7 @@ def search_round_trip(
             stops=len(segments) - 1,
             airlines=_airline_names(item.airlines, results.metadata),
             price=item.price,
+            layovers=layovers,
         )
         quotes.append((leg, item.price))
 
