@@ -67,5 +67,7 @@
   "SZX/FOC/2026-12-18/2026-12-28/one-way pair": 896,
   "CAN/CAN/2026-12-19/2026-12-28/round-trip": 752,
   "HGH/HGH/2026-12-19/2026-12-28/one-way pair": 800,
-  "CAN/CAN/2026-12-19/2026-12-27/one-way pair": 875
+  "CAN/CAN/2026-12-19/2026-12-27/one-way pair": 875,
+  "ICN/ICN/2026-12-19/2026-12-27/round-trip": 779,
+  "ICN/ICN/2026-12-19/2026-12-28/round-trip": 779
 }
