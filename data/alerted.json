@@ -96,5 +96,9 @@
   "CAN/XMN/2026-12-19/2026-12-28/one-way pair": 861,
   "CAN/XMN/2026-12-19/2026-12-29/one-way pair": 861,
   "CAN/CSX/2026-12-19/2026-12-27/one-way pair": 879,
-  "CKG/CTU/2026-12-19/2026-12-27/one-way pair": 880
+  "CKG/CTU/2026-12-19/2026-12-27/one-way pair": 880,
+  "TAO/TAO/2026-12-19/2026-12-27/round-trip": 768,
+  "TSN/TSN/2026-12-19/2026-12-29/round-trip": 844,
+  "TSN/TSN/2026-12-19/2026-12-27/round-trip": 845,
+  "TAO/TAO/2026-12-19/2026-12-29/round-trip": 849
 }
