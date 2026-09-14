@@ -59,7 +59,7 @@
   "ICN/CJU/2026-12-19/2026-12-27/one-way pair": 888,
   "PUS/ICN/2026-12-18/2026-12-27/one-way pair": 891,
   "PUS/ICN/2026-12-18/2026-12-28/one-way pair": 891,
-  "SZX/FOC/2026-12-19/2026-12-27/one-way pair": 787,
+  "SZX/FOC/2026-12-19/2026-12-27/one-way pair": 786,
   "SZX/FOC/2026-12-19/2026-12-28/one-way pair": 895,
   "NKG/NKG/2026-12-18/2026-12-27/one-way pair": 895,
   "NKG/NKG/2026-12-18/2026-12-28/one-way pair": 895,
@@ -102,5 +102,7 @@
   "TSN/TSN/2026-12-19/2026-12-27/round-trip": 845,
   "TAO/TAO/2026-12-19/2026-12-29/round-trip": 849,
   "SZX/XMN/2026-12-19/2026-12-28/one-way pair": 857,
-  "SZX/XMN/2026-12-19/2026-12-29/one-way pair": 857
+  "SZX/XMN/2026-12-19/2026-12-29/one-way pair": 857,
+  "HGH/NKG/2026-12-19/2026-12-29/one-way pair": 881,
+  "XMN/XMN/2026-12-19/2026-12-29/round-trip": 881
 }
