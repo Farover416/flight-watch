@@ -66,6 +66,8 @@ class Config:
     keep_per_search: int = 5
     report_top: int = 12
     max_per_city_pair: int = 3
+    # How many of the cheapest-regardless-of-connections trips to list.
+    unrestricted_top: int = 5
 
     request_delay_seconds: float = 3.0
     request_retries: int = 2
@@ -186,7 +188,7 @@ def load(path: str | Path | None = None) -> Config:
         "return_dates", "min_nights", "destinations", "rail_groups",
         "check_round_trip",
         "round_trip_candidates", "extended_per_run", "keep_per_search",
-        "report_top", "max_per_city_pair", "cities", "areas",
+        "report_top", "max_per_city_pair", "unrestricted_top", "cities", "areas",
         "request_delay_seconds", "request_retries",
         "request_backoff_seconds",
     ):
