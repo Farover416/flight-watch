@@ -166,16 +166,10 @@ def _decode_itinerary(entry) -> Flights:
     because Google omits them often enough to matter and we never read them.
     """
     flight = entry[0]
+    # The airline's own fare, and the only price in the payload - the agency
+    # prices Google shows are fetched by the page after load. flightwatch.verify
+    # reads those for the trips we actually recommend.
     price = entry[1][0][1]
-    # The number we take is the airline's own fare. Google's page also lists
-    # agency prices, which on at least one real itinerary came in 6% under it.
-    # Sample the raw price block so we can see whether the cheaper figure is
-    # already here in what we fetch, or only behind a second request.
-    if len(_price_samples) < 4:
-        try:
-            _price_samples.append(json.dumps(entry[1])[:500])
-        except Exception:
-            pass
 
     segments = []
     for seg in flight[2]:
@@ -334,13 +328,6 @@ _skipped = 0
 # Why itineraries got skipped, counted by reason, so a run can say whether it
 # is dropping junk entries or dropping fares.
 _skip_reasons: dict[str, int] = {}
-# Raw price blocks from the first few itineraries of a run, for working out
-# whether a cheaper booking option is shipped alongside the fare we read.
-_price_samples: list[str] = []
-
-
-def price_samples() -> list[str]:
-    return list(_price_samples)
 
 
 def unreadable_count() -> int:
@@ -360,7 +347,6 @@ def reset_unreadable() -> None:
     _unreadable = 0
     _skipped = 0
     _skip_reasons.clear()
-    _price_samples.clear()
 
 
 def _fetch(cfg, query):
