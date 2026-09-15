@@ -64,6 +64,10 @@ class Leg:
     price: int          # all-in: fare plus the estimated checked-bag fee
     layovers: tuple[Layover, ...] = ()
     bag_fee: int = 0    # how much of price is the bag estimate
+    # Whether the connections pass the quick-or-worth-leaving-the-airport rules.
+    # Failing legs are kept rather than dropped: they cost nothing extra to
+    # carry, and they are what the unrestricted list is made of.
+    layover_ok: bool = True
 
     @property
     def date(self) -> str:
@@ -110,6 +114,11 @@ class Combo:
     @property
     def back_verified(self) -> bool:
         return self.back is not None
+
+    @property
+    def comfortable(self) -> bool:
+        """Every connection on this trip passes the layover rules."""
+        return self.out.layover_ok and (self.back is None or self.back.layover_ok)
 
     @property
     def nights(self) -> int:
@@ -223,6 +232,9 @@ class SweepResult:
     started: datetime
     finished: datetime | None = None
     combos: list[Combo] = field(default_factory=list)
+    # The same sweep with the layover rules switched off - the floor price, and
+    # a measure of what insisting on good connections costs.
+    any_combos: list[Combo] = field(default_factory=list)
     searches_run: int = 0
     searches_failed: int = 0
     # Pages that came back, looked like results, and could not be decoded.
