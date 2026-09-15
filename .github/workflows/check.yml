@@ -49,6 +49,13 @@ jobs:
 
       - run: pip install -r requirements.txt
 
+      # Only chromium, and only the browser itself - this is for the handful of
+      # price checks that need a rendered page. If it fails, the sweep still
+      # runs and reports its parsed prices instead of verified ones.
+      - name: Install the browser used for price verification
+        continue-on-error: true
+        run: python -m playwright install --with-deps chromium
+
       - name: Search for fares
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
