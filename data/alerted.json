@@ -82,16 +82,16 @@
   "PEK/PEK/2026-12-19/2026-12-27/round-trip": 867,
   "CKG/CKG/2026-12-19/2026-12-27/round-trip": 826,
   "CKG/CKG/2026-12-19/2026-12-28/round-trip": 829,
-  "ICN/PUS/2026-12-19/2026-12-27/one-way pair": 775,
-  "ICN/PUS/2026-12-19/2026-12-28/one-way pair": 775,
+  "ICN/PUS/2026-12-19/2026-12-27/one-way pair": 774,
+  "ICN/PUS/2026-12-19/2026-12-28/one-way pair": 774,
   "XMN/CAN/2026-12-19/2026-12-28/one-way pair": 809,
   "XMN/CAN/2026-12-19/2026-12-29/one-way pair": 809,
   "NGB/NGB/2026-12-19/2026-12-27/round-trip": 889,
   "XMN/SZX/2026-12-19/2026-12-27/one-way pair": 893,
   "SZX/SZX/2026-12-19/2026-12-28/round-trip": 723,
   "SZX/SZX/2026-12-19/2026-12-29/round-trip": 798,
-  "PUS/PUS/2026-12-19/2026-12-27/one-way pair": 876,
-  "PUS/PUS/2026-12-19/2026-12-28/one-way pair": 876,
+  "PUS/PUS/2026-12-19/2026-12-27/one-way pair": 875,
+  "PUS/PUS/2026-12-19/2026-12-28/one-way pair": 875,
   "XMN/XMN/2026-12-19/2026-12-27/round-trip": 836,
   "CAN/XMN/2026-12-19/2026-12-28/one-way pair": 861,
   "CAN/XMN/2026-12-19/2026-12-29/one-way pair": 861,
@@ -108,5 +108,6 @@
   "SZX/CSX/2026-12-19/2026-12-27/one-way pair": 875,
   "CAN/WUH/2026-12-19/2026-12-27/one-way pair": 877,
   "CAN/WUH/2026-12-19/2026-12-28/one-way pair": 877,
-  "CAN/WUH/2026-12-19/2026-12-29/one-way pair": 882
+  "CAN/WUH/2026-12-19/2026-12-29/one-way pair": 882,
+  "HGH/HGH/2026-12-18/2026-12-28/one-way pair": 848
 }
