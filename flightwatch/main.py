@@ -7,9 +7,10 @@ import logging
 import sys
 from datetime import datetime
 
-from . import combine, config, present, search
+from . import combine, config, present, search, verify
 from .models import Leg, SweepResult
-from .notify import NoChatYet, Telegram, format_deals, format_unrestricted
+from .notify import (NoChatYet, Telegram, format_deals, format_unrestricted,
+                     format_verified)
 from .search import search_one_way, search_round_trip
 from .state import Store
 
@@ -128,8 +129,6 @@ def sweep(
         for reason, count in sorted(search.skip_reasons().items(),
                                     key=lambda kv: -kv[1]):
             log.info("  skip reason x%-4d %s", count, reason)
-    for sample in search.price_samples():
-        log.info("price block: %s", sample)
     log.info("combos: %d (cheapest S$%s)", len(result.combos),
              result.combos[0].total if result.combos else "-")
     return result
@@ -214,6 +213,24 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
     deliver(format_deals(cfg, items, heading))
     if result.any_combos:
         deliver(format_unrestricted(cfg, result.any_combos, cfg.unrestricted_top))
+
+    # The parsed prices are the airline's fare off a short list. For the few
+    # trips worth acting on, go and read what the page actually renders.
+    if cfg.verify_top and result.combos:
+        if not verify.available():
+            log.info("no browser available - skipping price verification")
+        else:
+            targets = verify.targets(cfg, result.combos, cfg.verify_top)
+            log.info("verifying %d search(es) in a browser", len(targets))
+            try:
+                verified = verify.verify(targets, rows_each=cfg.verify_rows)
+            except Exception as exc:
+                log.warning("verification unavailable (%s)", exc)
+                verified = {}
+            if verified:
+                deliver(format_verified(cfg, verified))
+            else:
+                log.warning("nothing verified - reporting parsed prices only")
     for combo in under_budget:
         store.record_alert(combo)
 
