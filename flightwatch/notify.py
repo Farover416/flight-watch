@@ -177,6 +177,45 @@ def leg_line(cfg, leg) -> str:
     )
 
 
+def format_unrestricted(cfg, combos, limit: int) -> str:
+    """The cheapest trips with the connection rules switched off.
+
+    Same dates, same one-stop cap, same checked bag priced in — only the
+    quick-or-worth-leaving-the-airport rules are lifted. So this is the floor
+    for the trip you asked for, and the gap to the list above is what insisting
+    on decent connections is costing you.
+    """
+    lines = [f"<b>Cheapest {min(limit, len(combos))} ignoring transit rules</b>", ""]
+    for combo in combos[:limit]:
+        landed = cfg.city_name(combo.out.search_to)
+        home_from = cfg.city_name(combo.back_city)
+        where = landed if combo.back_city == combo.out.search_to \
+            else f"{landed} → {home_from}"
+        label, url = combo.booking_urls(cfg)[0]
+        passes = " · would pass the rules anyway" if combo.comfortable else ""
+        lines.append(
+            f"<b>S${combo.total}</b> — {esc(where)}<i>{esc(passes)}</i>  "
+            f'<a href="{esc(url)}">{esc(label)}</a>'
+        )
+        lines.append(f"  ✈ {leg_line(cfg, combo.out)}")
+        if combo.back is not None:
+            lines.append(f"  ↩ {leg_line(cfg, combo.back)}")
+        else:
+            lines.append(
+                f"  ↩ {esc(home_from)} → {esc(cfg.city_name(cfg.origin))}  "
+                f"{esc(present.day_label(combo.back_date))}"
+                " <i>(return times not pinned — check arrival)</i>"
+            )
+        lines.append(f"  <i>{combo.nights} nights · {esc(combo.source)}</i>")
+        lines.append("")
+    lines.append(
+        "<i>Your dates, your 1-stop cap and the checked bag all still apply. "
+        "Only the layover rules are off, so expect dead waits and overnights "
+        "in terminals — check the times before getting excited.</i>"
+    )
+    return "\n".join(lines).rstrip()
+
+
 def format_deals(cfg, items, heading: str) -> str:
     """Render (trip, alternatives) pairs as produced by present.prepare."""
     lines = [f"<b>{esc(heading)}</b>", ""]
