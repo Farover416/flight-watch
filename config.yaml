@@ -174,6 +174,15 @@ max_per_city_pair: 3
 # searches, and it shows what insisting on good transits is costing you.
 unrestricted_top: 5
 
+# What a plain fetch of a results page can see is the airline's own fare, on a
+# short list. The cheaper agency prices - and the rest of the flights - arrive
+# in a request the page makes after loading. So the few trips worth acting on
+# get re-opened in a real browser, switched to Google's own Cheapest view, and
+# read as a person would read them. Six page loads a sweep, not two hundred.
+# Set verify_top to 0 to switch it off.
+verify_top: 6
+verify_rows: 4
+
 # --- layovers ----------------------------------------------------------------
 # A connection is worth having only if it is either quick, or long enough in
 # daylight that you can leave the airport and see the city. The awkward middle -
