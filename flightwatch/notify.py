@@ -177,6 +177,27 @@ def leg_line(cfg, leg) -> str:
     )
 
 
+def format_verified(cfg, verified: dict) -> str:
+    """Prices read off the rendered page, for the trips worth acting on.
+
+    Kept as its own message because these numbers come from somewhere else and
+    should not be quietly mixed in with the parsed ones: what a plain fetch
+    sees is the airline's fare on a short list; this is what you would see.
+    """
+    lines = ["<b>Checked in a real browser</b>", ""]
+    for label, fares in verified.items():
+        lines.append(f"<b>{esc(label)}</b> — from <b>S${fares[0].price}</b>")
+        for fare in fares:
+            lines.append(f"  S${fare.price}  {esc(fare.summary)}")
+        lines.append("")
+    lines.append(
+        "<i>Google's own Cheapest view, agency prices included — the number a "
+        "person sees on the page, which is lower than the airline fare the "
+        "list above quotes. Bag rules still vary by carrier.</i>"
+    )
+    return "\n".join(lines).rstrip()
+
+
 def format_unrestricted(cfg, combos, limit: int) -> str:
     """The cheapest trips with the connection rules switched off.
 
