@@ -85,7 +85,7 @@ destinations:
     priority: [SHA, BJS, CAN, SZX, HGH, CTU, CKG, XMN, NKG, XIY, KMG, FOC]
     extended:
       # Yangtze delta + eastern seaboard
-      [TAO, TSN, NGB, WNZ, WUX, CZX, TNA, HFE, YNT, YTY,
+      [TAO, TSN, NGB, WNZ, WUX, CZX, TNA, HFE, YNT, WEH, YTY,
        # south coast
        JJN, ZUH, SWA, ZHA, NNG, BHY, LZH, KWL, KWE,
        # Hainan
@@ -113,7 +113,13 @@ destinations:
 rail_groups:
   # --- China ---
   yangtze_delta:     [SHA, HGH, NKG, NGB, WUX, CZX, HFE, WNZ, YTY]
-  north_china:       [BJS, TSN, SJW, TNA, TAO, YNT, TYN, CGO]
+  # Qingdao-Yantai-Weihai is one intercity line (the Qingrong), and Beijing
+  # runs through G-trains to all three, so any of them can be the way in or out.
+  # Shenyang sits in both this group and the northeast one: Beijing-Shenyang is
+  # 2h30 on the Beijing-Harbin high-speed line, close enough to fly into and
+  # train in. Dalian and Harbin stay northeast-only - 4-5h is further than
+  # "nearby", and leaving them out keeps Beijing-Dalian from pairing up.
+  north_china:       [BJS, TSN, SJW, TNA, TAO, YNT, WEH, TYN, CGO, SHE]
   pearl_delta:       [CAN, SZX, ZUH, SWA, ZHA, CSX, WUH]
   southeast_coast:   [XMN, FOC, JJN, SWA, WNZ, CAN, SZX]
   central_china:     [WUH, CSX, CGO, KHN, YIH, XFN, LYA, DYG]
@@ -162,6 +168,11 @@ report_top: 12
 # At most this many options for the same pair of cities (the one you land in,
 # the one you fly home from). Stops one cheap route filling the whole message.
 max_per_city_pair: 3
+# Every run also sends a second, shorter message: the cheapest trips with the
+# layover rules switched off entirely. Same dates, same one-stop cap, same
+# checked bag - just no opinion about the connections. It costs no extra
+# searches, and it shows what insisting on good transits is costing you.
+unrestricted_top: 5
 
 # --- layovers ----------------------------------------------------------------
 # A connection is worth having only if it is either quick, or long enough in
@@ -254,6 +265,7 @@ cities:
   TNA: Jinan
   HFE: Hefei
   YNT: Yantai
+  WEH: Weihai
   YTY: Yangzhou
   # China - south
   JJN: Quanzhou
