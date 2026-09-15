@@ -128,6 +128,8 @@ def sweep(
         for reason, count in sorted(search.skip_reasons().items(),
                                     key=lambda kv: -kv[1]):
             log.info("  skip reason x%-4d %s", count, reason)
+    for sample in search.price_samples():
+        log.info("price block: %s", sample)
     log.info("combos: %d (cheapest S$%s)", len(result.combos),
              result.combos[0].total if result.combos else "-")
     return result
