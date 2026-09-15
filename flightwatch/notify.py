@@ -271,7 +271,9 @@ def format_deals(cfg, items, heading: str) -> str:
         f"<i>Totals include a checked bag: free on carriers that bundle one, "
         f"otherwise our own estimate (Google will not price it). "
         f"Budget S${cfg.max_total}. "
-        "Google's price is a ceiling - vouchers, card promos and cashback only "
-        "show at checkout, so the comparison links are worth the minute.</i>"
+        "This is the airline's own fare. Google lists agency prices under "
+        '"Booking options" once you open a flight, and those have come in '
+        "several percent lower - so treat every number here as a ceiling and "
+        "open the flight before judging it.</i>"
     )
     return "\n".join(lines).rstrip()
