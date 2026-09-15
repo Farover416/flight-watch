@@ -87,7 +87,12 @@ class Store:
             "legs_found": result.legs_found,
             "outbound_legs": result.outbound_legs,
             "inbound_legs": result.inbound_legs,
-            "cheapest": [c.to_json() for c in result.best(5)],
+            # Deep enough to answer "what about this particular routing?"
+            # afterwards without re-running the sweep. Five only ever showed
+            # the headline, which is never the one you end up asking about.
+            "cheapest": [c.to_json() for c in result.best(25)],
+            "cheapest_any": [c.to_json() for c in
+                             sorted(result.any_combos, key=lambda c: c.total)[:10]],
         }
         with self.history_path.open("a", encoding="utf-8") as handle:
             handle.write(json.dumps(row, ensure_ascii=False) + "\n")
