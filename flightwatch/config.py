@@ -68,6 +68,11 @@ class Config:
     max_per_city_pair: int = 3
     # How many of the cheapest-regardless-of-connections trips to list.
     unrestricted_top: int = 5
+    # How many searches to re-open in a real browser to read the prices Google
+    # renders. Small on purpose: this is for the trips worth acting on, not the
+    # whole sweep. 0 turns it off.
+    verify_top: int = 6
+    verify_rows: int = 4
 
     request_delay_seconds: float = 3.0
     request_retries: int = 2
@@ -188,7 +193,8 @@ def load(path: str | Path | None = None) -> Config:
         "return_dates", "min_nights", "destinations", "rail_groups",
         "check_round_trip",
         "round_trip_candidates", "extended_per_run", "keep_per_search",
-        "report_top", "max_per_city_pair", "unrestricted_top", "cities", "areas",
+        "report_top", "max_per_city_pair", "unrestricted_top",
+        "verify_top", "verify_rows", "cities", "areas",
         "request_delay_seconds", "request_retries",
         "request_backoff_seconds",
     ):
