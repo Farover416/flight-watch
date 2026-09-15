@@ -9,7 +9,7 @@ from datetime import datetime
 
 from . import combine, config, present, search
 from .models import Leg, SweepResult
-from .notify import NoChatYet, Telegram, format_deals
+from .notify import NoChatYet, Telegram, format_deals, format_unrestricted
 from .search import search_one_way, search_round_trip
 from .state import Store
 
@@ -72,8 +72,15 @@ def sweep(
     result.legs_found = len(outbound) + len(inbound)
     log.info("legs: %d outbound, %d return", len(outbound), len(inbound))
 
-    one_way = combine.build_combos(cfg, outbound, inbound)
+    # Two parallel worlds from the same searches: the trips whose connections
+    # you would actually accept, and every trip regardless. They are kept apart
+    # end to end so a cheap-but-grim itinerary can never displace a good one
+    # from the main list.
+    comfy_out = [leg for leg in outbound if leg.layover_ok]
+    comfy_in = [leg for leg in inbound if leg.layover_ok]
+    one_way = combine.build_combos(cfg, comfy_out, comfy_in)
     groups = [one_way]
+    loose = [combine.build_combos(cfg, outbound, inbound)]
 
     # --- round-trip cross-check ---------------------------------------------
     # Only for the cities the one-way sweep says are worth a second look, so
@@ -101,9 +108,12 @@ def sweep(
                     )
                     quotes.extend((leg, total, back_date) for leg, total in found)
         result.legs_found += len(quotes)
-        groups.append(combine.round_trip_combos(cfg, quotes))
+        groups.append(combine.round_trip_combos(
+            cfg, [q for q in quotes if q[0].layover_ok]))
+        loose.append(combine.round_trip_combos(cfg, quotes))
 
     result.combos = combine.merge(cfg, *groups)
+    result.any_combos = combine.merge(cfg, *loose)
     result.searches_unparsed = search.unreadable_count()
     result.finished = datetime.utcnow()
     if result.searches_unparsed:
@@ -175,6 +185,11 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
                 "than empty."
             )
         deliver(note)
+        # Nothing passed the connection rules, but something may still fly.
+        # That is the most useful moment for this list, not the least.
+        if result.any_combos:
+            deliver(format_unrestricted(cfg, result.any_combos,
+                                        cfg.unrestricted_top))
         store.append_history(result)
         store.save()
         return 0
@@ -195,6 +210,8 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         heading += f" · new low, was S${previous_best}"
 
     deliver(format_deals(cfg, items, heading))
+    if result.any_combos:
+        deliver(format_unrestricted(cfg, result.any_combos, cfg.unrestricted_top))
     for combo in under_budget:
         store.record_alert(combo)
 
