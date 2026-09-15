@@ -376,6 +376,28 @@ def _pace(cfg) -> None:
     time.sleep(cfg.request_delay_seconds * random.uniform(0.8, 1.3))
 
 
+def _keep_both(cfg, priced: list[tuple[Leg, int]]) -> list[tuple[Leg, int]]:
+    """The cheapest few with good connections, plus the cheapest few outright.
+
+    Both are wanted. The first set is what gets recommended; the second is the
+    floor price when you stop caring how you get there. Keeping them together
+    costs no extra searches - these itineraries were already fetched and, until
+    now, thrown away for failing the layover rules.
+    """
+    keep = cfg.keep_per_search
+    chosen: list[tuple[Leg, int]] = []
+    seen: set[tuple] = set()
+    for pair in [p for p in priced if p[0].layover_ok][:keep] + priced[:keep]:
+        leg = pair[0]
+        mark = (leg.from_airport, leg.to_airport, leg.depart, leg.arrive, pair[1])
+        if mark in seen:
+            continue
+        seen.add(mark)
+        chosen.append(pair)
+    chosen.sort(key=lambda pair: pair[1])
+    return chosen
+
+
 def search_one_way(
     cfg,
     origin: str,
@@ -411,8 +433,6 @@ def search_one_way(
         if not isinstance(item.price, int) or item.price <= 0:
             continue
         layovers = _layovers(segments)
-        if not layovers_ok(cfg, layovers):
-            continue
         airlines = _airline_names(item.airlines, results.metadata)
         # Google will not price a checked bag, so add our own estimate for the
         # one leg this itinerary covers.
@@ -432,11 +452,12 @@ def search_one_way(
                 price=item.price + bag_fee,
                 layovers=layovers,
                 bag_fee=bag_fee,
+                layover_ok=layovers_ok(cfg, layovers),
             )
         )
 
     legs.sort(key=lambda leg: leg.price)
-    return legs[: cfg.keep_per_search]
+    return [leg for leg, _ in _keep_both(cfg, [(leg, leg.price) for leg in legs])]
 
 
 def search_round_trip(
@@ -480,8 +501,6 @@ def search_round_trip(
         if not isinstance(item.price, int) or item.price <= 0:
             continue
         layovers = _layovers(segments)
-        if not layovers_ok(cfg, layovers):
-            continue
         airlines = _airline_names(item.airlines, results.metadata)
         # A round-trip quote covers both legs, so the bag is paid twice.
         bag_fee = cfg.checked_bag_fee(airlines) * 2
@@ -499,8 +518,9 @@ def search_round_trip(
             price=item.price + bag_fee,
             layovers=layovers,
             bag_fee=bag_fee,
+            layover_ok=layovers_ok(cfg, layovers),
         )
         quotes.append((leg, item.price + bag_fee))
 
     quotes.sort(key=lambda pair: pair[1])
-    return quotes[: cfg.keep_per_search]
+    return _keep_both(cfg, quotes)
