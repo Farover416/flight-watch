@@ -122,5 +122,7 @@
   "SWA/FOC/2026-12-19/2026-12-27/one-way pair": 856,
   "SWA/CAN/2026-12-19/2026-12-27/one-way pair": 857,
   "WUH/WUH/2026-12-19/2026-12-29/round-trip": 766,
-  "SZX/SZX/2026-12-18/2026-12-29/round-trip": 775
+  "SZX/SZX/2026-12-18/2026-12-29/round-trip": 775,
+  "CAN/XMN/2026-12-19/2026-12-27/one-way pair": 813,
+  "SZX/XMN/2026-12-19/2026-12-27/one-way pair": 849
 }
