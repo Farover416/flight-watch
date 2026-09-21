@@ -51,16 +51,16 @@ def alternative_label(primary, alt) -> str:
     if alt.back_date != primary.back_date:
         parts.append(f"{day_label(alt.back_date)} back")
     where = ", ".join(parts) if parts else "same dates"
-    if alt.total == primary.total:
+    if alt.price == primary.price:
         return f"{where}, same price"
-    return f"{where}, S${alt.total}"
+    return f"{where}, S${alt.price}"
 
 
 def collapse(combos) -> list[tuple[object, list]]:
     """Group identical itineraries, cheapest first, alternatives attached."""
     groups: dict[tuple, list] = {}
     order: list[tuple] = []
-    for combo in sorted(combos, key=lambda c: (c.total, c.out.date, c.back_date)):
+    for combo in sorted(combos, key=lambda c: (c.price, c.out.date, c.back_date)):
         key = _shape(combo)
         if key not in groups:
             groups[key] = [combo]

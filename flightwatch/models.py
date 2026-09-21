@@ -101,6 +101,22 @@ class Combo:
     total: int
     back: Leg | None = None
     source: str = "one-way pair"
+    # What a browser actually read off the page for this exact trip, when one
+    # was opened. ``total`` stays the parsed fare either way, so the gap
+    # between the two is never lost - it is the reason verification exists.
+    verified: int | None = None
+    verified_urls: tuple[tuple[str, str], ...] = ()
+
+    @property
+    def price(self) -> int:
+        """The number to act on: what was read if it was read, else parsed.
+
+        Everything that decides money after verification - the budget test,
+        the new-low test, what gets alerted and ranked - uses this. The
+        combination logic upstream still works on ``total``, because it runs
+        before any page has been opened.
+        """
+        return self.total if self.verified is None else self.verified
 
     @property
     def back_from(self) -> str:
@@ -198,7 +214,9 @@ class Combo:
     def to_json(self) -> dict:
         return {
             "signature": self.signature(),
-            "total": self.total,
+            "total": self.price,
+            "parsed": self.total,
+            "verified": self.verified,
             "country": self.country,
             "source": self.source,
             "open_jaw": self.is_open_jaw,
@@ -269,7 +287,7 @@ class SweepResult:
         )
 
     def best(self, n: int) -> list[Combo]:
-        return sorted(self.combos, key=lambda c: c.total)[:n]
+        return sorted(self.combos, key=lambda c: c.price)[:n]
 
 
 def dedupe_cheapest(combos: Iterable[Combo]) -> list[Combo]:

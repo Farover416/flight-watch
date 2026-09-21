@@ -177,6 +177,20 @@ def leg_line(cfg, leg) -> str:
     )
 
 
+def _checked(combo) -> str:
+    """Mark a price a browser actually read, and what it was before.
+
+    Worth the few characters: these two numbers come from different places,
+    and a price that moved because someone looked at the page should not be
+    indistinguishable from one that moved because the fare changed.
+    """
+    if combo.verified is None:
+        return ""
+    if combo.verified < combo.total:
+        return f" <i>(checked, was S${combo.total})</i>"
+    return " <i>(checked)</i>"
+
+
 def format_verified(cfg, verified: dict) -> str:
     """Prices read off the rendered page, for the trips worth acting on.
 
@@ -185,10 +199,14 @@ def format_verified(cfg, verified: dict) -> str:
     sees is the airline's fare on a short list; this is what you would see.
     """
     lines = ["<b>Checked in a real browser</b>", ""]
-    for label, fares in verified.items():
-        lines.append(f"<b>{esc(label)}</b> — from <b>S${fares[0].price}</b>")
-        for fare in fares:
-            lines.append(f"  S${fare.price}  {esc(fare.summary)}")
+    for found in sorted(verified.values(), key=lambda v: v["total"]):
+        lines.append(f"<b>{esc(found['label'])}</b> — <b>S${found['total']}</b>")
+        for part in found["parts"]:
+            head = f"{part['label']} " if part["label"] else ""
+            lines.append(
+                f"  <a href=\"{esc(part['url'])}\">{esc(head)}open</a>")
+            for fare in part["fares"]:
+                lines.append(f"    S${fare.price}  {esc(fare.summary)}")
         lines.append("")
     lines.append(
         "<i>Google's own Cheapest view, agency prices included — the number a "
@@ -215,7 +233,7 @@ def format_unrestricted(cfg, combos, limit: int) -> str:
         label, url = combo.booking_urls(cfg)[0]
         passes = " · would pass the rules anyway" if combo.comfortable else ""
         lines.append(
-            f"<b>S${combo.total}</b> — {esc(where)}<i>{esc(passes)}</i>  "
+            f"<b>S${combo.price}</b>{_checked(combo)} — {esc(where)}<i>{esc(passes)}</i>  "
             f'<a href="{esc(url)}">{esc(label)}</a>'
         )
         lines.append(f"  ✈ {leg_line(cfg, combo.out)}")
@@ -258,7 +276,7 @@ def format_deals(cfg, items, heading: str) -> str:
             f'<a href="{esc(url)}">{esc(label)}</a>'
             for label, url in combo.booking_urls(cfg)
         )
-        lines.append(f"<b>S${combo.total}</b> — {esc(where)}{tag}  {links}")
+        lines.append(f"<b>S${combo.price}</b>{_checked(combo)} — {esc(where)}{tag}  {links}")
         lines.append(f"  ✈ {leg_line(cfg, combo.out)}")
         if combo.back is not None:
             lines.append(f"  ↩ {leg_line(cfg, combo.back)}")

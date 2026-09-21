@@ -130,8 +130,55 @@ def sweep(
                                     key=lambda kv: -kv[1]):
             log.info("  skip reason x%-4d %s", count, reason)
     log.info("combos: %d (cheapest S$%s)", len(result.combos),
-             result.combos[0].total if result.combos else "-")
+             result.combos[0].price if result.combos else "-")
     return result
+
+
+def _verify(cfg, result: SweepResult) -> dict:
+    """Read the real page for the top few trips and fold the prices in.
+
+    The returned prices replace nothing: each trip keeps its parsed ``total``
+    and gains a ``verified`` one, so the gap between what a fetch sees and
+    what a person sees stays visible. What changes is which number the rest
+    of the run acts on.
+
+    Entirely optional. No browser, a consent wall, a bot check, an unreadable
+    page: the run carries on with parsed prices and says so.
+    """
+    import dataclasses
+
+    if not cfg.verify_top or not result.combos:
+        return {}
+    if not verify.available():
+        log.info("no browser available - skipping price verification")
+        return {}
+
+    targets = verify.targets(cfg, result.combos, cfg.verify_top)
+    log.info("verifying %d trip(s) in a browser (%d page loads)",
+             len(targets), sum(len(t["parts"]) for t in targets))
+    try:
+        verified = verify.verify(targets, rows_each=cfg.verify_rows)
+    except Exception as exc:
+        log.warning("verification unavailable (%s)", exc)
+        return {}
+    if not verified:
+        log.warning("nothing verified - acting on parsed prices only")
+        return {}
+
+    for group in (result.combos, result.any_combos):
+        for i, combo in enumerate(group):
+            found = verified.get(combo.signature())
+            if found is None:
+                continue
+            group[i] = dataclasses.replace(
+                combo, verified=found["total"],
+                verified_urls=tuple((p["label"] or "book", p["url"])
+                                    for p in found["parts"]))
+    # Re-rank: a verified price that undercuts its parsed one changes the order.
+    result.combos.sort(key=lambda c: c.price)
+    result.any_combos.sort(key=lambda c: c.price)
+    log.info("verified %d of %d trip(s)", len(verified), len(targets))
+    return verified
 
 
 def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
@@ -163,10 +210,17 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         store.save()
         return 1
 
+    # The parsed prices are the airline's fare off a short list. For the few
+    # trips worth acting on, go and read what the page actually renders -
+    # BEFORE deciding anything, because these are the numbers to decide on.
+    # Reading them afterwards, as this used to, meant every alert, every
+    # budget test and every new low ran on the number we trust least.
+    verified = _verify(cfg, result)
+
     # Every run reports what it actually found. Suppressing fares because an
     # earlier run already mentioned them hid the cheapest ones and surfaced
     # worse alternatives, which is the opposite of useful.
-    under_budget = [c for c in result.combos if c.total <= cfg.max_total]
+    under_budget = [c for c in result.combos if c.price <= cfg.max_total]
     previous_best = store.best_total()
     if result.combos:
         store.update_best(result.combos[0])
@@ -207,30 +261,15 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
             f"Nothing under S${cfg.max_total} - cheapest {len(items)} "
             f"right now - {where}"
         )
-    if previous_best is not None and result.combos[0].total < previous_best:
+    if previous_best is not None and result.combos[0].price < previous_best:
         heading += f" · new low, was S${previous_best}"
 
     deliver(format_deals(cfg, items, heading))
     if result.any_combos:
         deliver(format_unrestricted(cfg, result.any_combos, cfg.unrestricted_top))
 
-    # The parsed prices are the airline's fare off a short list. For the few
-    # trips worth acting on, go and read what the page actually renders.
-    if cfg.verify_top and result.combos:
-        if not verify.available():
-            log.info("no browser available - skipping price verification")
-        else:
-            targets = verify.targets(cfg, result.combos, cfg.verify_top)
-            log.info("verifying %d search(es) in a browser", len(targets))
-            try:
-                verified = verify.verify(targets, rows_each=cfg.verify_rows)
-            except Exception as exc:
-                log.warning("verification unavailable (%s)", exc)
-                verified = {}
-            if verified:
-                deliver(format_verified(cfg, verified))
-            else:
-                log.warning("nothing verified - reporting parsed prices only")
+    if verified:
+        deliver(format_verified(cfg, verified))
     for combo in under_budget:
         store.record_alert(combo)
 
@@ -266,7 +305,7 @@ def main(argv: list[str] | None = None) -> int:
         print(telegram.whoami())
         return 0
 
-    store = Store(cfg.data_dir)
+    store = Store(cfg.data_dir, cfg)
     wanted = [t for t in args.only.split(",") if t.strip()]
     only, unknown = cfg.resolve_destinations(wanted) if wanted else ([], [])
     if unknown:

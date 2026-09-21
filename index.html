@@ -1,0 +1,1179 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Flight Watch</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>✈</text></svg>">
+<style>
+:root{
+  color-scheme: light;
+  --plane:#f9f9f7; --surface:#fcfcfb;
+  --ink:#0b0b0b; --ink-2:#52514e; --muted:#898781;
+  --grid:#e1e0d9; --axis:#c3c2b7; --ring:rgba(11,11,11,.10);
+  --good:#006300; --bad:#d03b3b;
+  --s1:#2a78d6; --s2:#eb6834; --s3:#1baf7a;
+  --s4:#eda100; --s5:#e87ba4; --s6:#008300;
+  --ctx:#c3c2b7;
+}
+@media (prefers-color-scheme: dark){
+  :root:where(:not([data-theme="light"])){
+    color-scheme: dark;
+    --plane:#0d0d0d; --surface:#1a1a19;
+    --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
+    --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+    --good:#0ca30c; --bad:#e66767;
+    --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+    --s4:#c98500; --s5:#d55181; --s6:#008300;
+    --ctx:#4a4a46;
+  }
+}
+:root[data-theme="dark"]{
+  color-scheme: dark;
+  --plane:#0d0d0d; --surface:#1a1a19;
+  --ink:#fff; --ink-2:#c3c2b7; --muted:#898781;
+  --grid:#2c2c2a; --axis:#383835; --ring:rgba(255,255,255,.10);
+  --good:#0ca30c; --bad:#e66767;
+  --s1:#3987e5; --s2:#d95926; --s3:#199e70;
+  --s4:#c98500; --s5:#d55181; --s6:#008300;
+  --ctx:#4a4a46;
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{
+  background:var(--plane); color:var(--ink);
+  font:15px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;
+  padding:0 16px 48px; overflow-x:hidden;
+  -webkit-text-size-adjust:100%;
+}
+.wrap{max-width:860px;margin:0 auto}
+header{padding:28px 0 8px}
+h1{font-size:22px;margin:0;letter-spacing:-.01em}
+.sub{color:var(--ink-2);font-size:13px;margin-top:4px}
+section{
+  background:var(--surface); border:1px solid var(--ring); border-radius:12px;
+  padding:16px; margin-top:14px;
+}
+h2{font-size:12px;letter-spacing:.06em;text-transform:uppercase;color:var(--muted);
+   margin:0 0 12px;font-weight:600}
+button{font:inherit;cursor:pointer}
+.btn{
+  background:var(--s1); color:#fff; border:0; border-radius:9px;
+  padding:11px 18px; font-weight:600; min-height:44px;
+}
+.btn[disabled]{opacity:.5;cursor:default}
+.btn-ghost{background:transparent;color:var(--ink-2);border:1px solid var(--ring);
+  border-radius:9px;padding:8px 14px;min-height:38px}
+.chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.chip{
+  border:1px solid var(--ring); background:transparent; color:var(--ink-2);
+  border-radius:999px; padding:8px 14px; min-height:38px; font-size:14px;
+}
+.chip[aria-pressed="true"]{background:var(--s1);border-color:var(--s1);color:#fff;font-weight:600}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
+.hero-fig{font-size:44px;font-weight:650;letter-spacing:-.02em;line-height:1.1}
+.hero-meta{color:var(--ink-2);font-size:13px;margin-top:2px}
+.delta{font-size:15px;font-weight:600}
+.delta.down{color:var(--good)} .delta.up{color:var(--bad)}
+.note{color:var(--muted);font-size:12.5px;margin-top:10px}
+.empty{color:var(--ink-2);font-size:14px;padding:18px 0;text-align:center}
+svg{display:block;width:100%;height:auto;touch-action:pan-y}
+.legend{display:flex;flex-wrap:wrap;gap:6px 14px;margin-top:12px}
+.lg{display:flex;align-items:center;gap:7px;background:none;border:0;padding:5px 2px;
+    color:var(--ink-2);font-size:13px;text-align:left;min-height:32px}
+.lg .sw{width:11px;height:11px;border-radius:3px;flex:none}
+.lg[aria-pressed="false"]{opacity:.38}
+.lg .px{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--grid);vertical-align:top}
+th{color:var(--muted);font-weight:600;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase}
+td.n{text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap}
+.scroller{overflow-x:auto;-webkit-overflow-scrolling:touch}
+input[type=text],input[type=password],select{
+  font:inherit;background:var(--plane);color:var(--ink);
+  border:1px solid var(--ring);border-radius:9px;padding:10px 12px;min-height:42px;width:100%;
+}
+label.fld{display:block;font-size:12.5px;color:var(--ink-2);margin:10px 0 4px}
+.status{font-size:13px;margin-top:12px;color:var(--ink-2)}
+.status b{color:var(--ink)}
+details summary{cursor:pointer;color:var(--ink-2);font-size:13px;padding:6px 0;min-height:32px}
+.tip{
+  position:fixed;pointer-events:none;z-index:9;max-width:300px;
+  background:var(--surface);border:1px solid var(--ring);border-radius:10px;
+  padding:10px 12px;font-size:12.5px;line-height:1.45;
+  box-shadow:0 8px 24px rgba(0,0,0,.16);
+}
+.tip .t-h{font-weight:650;margin-bottom:6px;font-size:12px;color:var(--ink-2)}
+.tip .t-r{display:flex;gap:8px;align-items:baseline;margin-top:5px}
+.tip .t-sw{width:9px;height:9px;border-radius:2px;flex:none;margin-top:4px}
+.tip .t-p{font-weight:650;font-variant-numeric:tabular-nums}
+.tip .t-d{color:var(--ink-2);font-size:11.5px}
+.vis-hidden{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+/* detail panel: the trip, its price, its flights, then the links right under */
+#detail{border:1px solid var(--ring);border-radius:10px;padding:14px;margin-top:14px;
+  background:var(--plane)}
+#detail .d-top{display:flex;justify-content:space-between;align-items:baseline;gap:12px}
+#detail .d-trip{font-weight:650;font-size:14.5px}
+#detail .d-price{font-size:24px;font-weight:650;font-variant-numeric:tabular-nums;
+  white-space:nowrap}
+#detail .d-when{color:var(--muted);font-size:12px;margin-top:2px}
+#detail .d-leg{margin-top:12px;font-size:13px}
+#detail .d-leg b{font-weight:600}
+#detail .d-leg .d-air{color:var(--ink-2)}
+.links{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}
+.links a{
+  display:inline-block;padding:9px 13px;min-height:40px;line-height:22px;
+  border:1px solid var(--ring);border-radius:9px;text-decoration:none;
+  color:var(--s1);font-size:13px;font-weight:600;background:var(--surface);
+}
+.links a:hover{border-color:var(--s1)}
+.links a.gf{color:#fff;background:var(--s1);border-color:var(--s1)}
+#detail .d-close{background:none;border:0;color:var(--ink-2);font-size:20px;
+  line-height:1;padding:4px 6px;min-height:34px}
+td .links{gap:6px;margin-top:6px}
+td .links a{padding:5px 9px;min-height:30px;line-height:18px;font-size:12px;font-weight:500}
+@media (max-width:520px){ .hero-fig{font-size:36px} h1{font-size:20px} }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+<header>
+  <h1>Flight Watch</h1>
+  <div class="sub">Singapore → North Asia, 18/19 Dec out, 27–29 Dec back. Under S$900 with a checked bag.</div>
+</header>
+
+<!-- ── run ─────────────────────────────────────────────────────────── -->
+<section>
+  <h2>Run a check</h2>
+  <div class="chips" id="pick"></div>
+  <details id="more-wrap">
+    <summary>Add another city</summary>
+    <label class="fld" for="more">Anywhere the watcher knows about</label>
+    <div class="row">
+      <select id="more"></select>
+    </div>
+  </details>
+  <div class="row" style="margin-top:14px">
+    <button class="btn" id="run">Run now</button>
+    <button class="btn-ghost" id="forget" hidden>Disconnect</button>
+  </div>
+  <div class="status" id="run-status"></div>
+
+  <div id="connect" hidden>
+    <label class="fld" for="tok">
+      Paste a GitHub token to enable the button. It stays in this browser and is
+      never sent anywhere but GitHub.
+    </label>
+    <input type="password" id="tok" placeholder="github_pat_…" autocomplete="off"
+           spellcheck="false">
+    <div class="row" style="margin-top:10px">
+      <button class="btn" id="save-tok">Connect</button>
+    </div>
+    <div class="note">
+      Fine-grained token, this repository only, Actions: read and write.
+      That is all it can do — trigger this search.
+    </div>
+  </div>
+</section>
+
+<!-- ── hero ────────────────────────────────────────────────────────── -->
+<section>
+  <h2>Cheapest right now</h2>
+  <div id="hero"><div class="empty">Loading…</div></div>
+</section>
+
+<!-- ── chart ───────────────────────────────────────────────────────── -->
+<section>
+  <h2>Price per trip, every run</h2>
+  <div class="chips" id="city-filter"></div>
+  <div class="chips">
+    <button class="chip" id="t-rules" aria-pressed="true">Within my layover rules</button>
+    <button class="chip" id="t-any" aria-pressed="true">Any transit time</button>
+    <button class="chip" id="t-table" aria-pressed="false">Table</button>
+  </div>
+  <div id="plot"></div>
+  <div id="detail" hidden></div>
+  <div class="legend" id="legend"></div>
+  <div class="scroller" id="table-wrap" hidden></div>
+  <div class="note" id="foot"></div>
+</section>
+
+</div>
+<div class="tip" id="tip" hidden></div>
+
+<script>
+"use strict";
+
+const REPO = "Farover416/flight-watch";
+const WORKFLOW = "check.yml";
+const BRANCH = "main";
+const TOKEN_KEY = "fw.token";
+const FIRST_MONTH = "2026-09";
+const CORE = ["Beijing", "Qingdao", "Weihai"];
+const SERIES_CAP = 6;    // coloured lines: the palette's safe ceiling
+const CONTEXT_CAP = 18;  // grey rivals behind them
+const LEGEND_CAP = 8;    // unselected trips offered in the legend
+
+const CITIES = {"SIN":"Singapore","TYO":"Tokyo","NRT":"Tokyo Narita","HND":"Tokyo Haneda","OSA":"Osaka","KIX":"Osaka Kansai","ITM":"Osaka Itami","NGO":"Nagoya","FUK":"Fukuoka","CTS":"Sapporo","OKA":"Okinawa","HIJ":"Hiroshima","SDJ":"Sendai","KOJ":"Kagoshima","TAK":"Takamatsu","OKJ":"Okayama","KMJ":"Kumamoto","HKD":"Hakodate","SEL":"Seoul","ICN":"Seoul Incheon","GMP":"Seoul Gimpo","PUS":"Busan","CJU":"Jeju","TAE":"Daegu","KWJ":"Gwangju","CJJ":"Cheongju","SHA":"Shanghai","PVG":"Shanghai Pudong","BJS":"Beijing","PEK":"Beijing Capital","PKX":"Beijing Daxing","CAN":"Guangzhou","SZX":"Shenzhen","HGH":"Hangzhou","CTU":"Chengdu","TFU":"Chengdu Tianfu","CKG":"Chongqing","XMN":"Xiamen","NKG":"Nanjing","XIY":"Xi'an","KMG":"Kunming","LJG":"Lijiang","DLU":"Dali","JHG":"Xishuangbanna","FOC":"Fuzhou","TAO":"Qingdao","TSN":"Tianjin","NGB":"Ningbo","WNZ":"Wenzhou","WUX":"Wuxi","CZX":"Changzhou","TNA":"Jinan","HFE":"Hefei","YNT":"Yantai","WEH":"Weihai","YTY":"Yangzhou","JJN":"Quanzhou","ZUH":"Zhuhai","SWA":"Shantou","ZHA":"Zhanjiang","NNG":"Nanning","BHY":"Beihai","LZH":"Liuzhou","KWL":"Guilin","KWE":"Guiyang","HAK":"Haikou","SYX":"Sanya","WUH":"Wuhan","CSX":"Changsha","CGO":"Zhengzhou","KHN":"Nanchang","YIH":"Yichang","XFN":"Xiangyang","LYA":"Luoyang","DYG":"Zhangjiajie","SHE":"Shenyang","DLC":"Dalian","HRB":"Harbin","CGQ":"Changchun","TYN":"Taiyuan","SJW":"Shijiazhuang","HET":"Hohhot","YNJ":"Yanji","LHW":"Lanzhou","INC":"Yinchuan","XNN":"Xining","BKK":"Bangkok","DMK":"Bangkok Don Mueang","KUL":"Kuala Lumpur","HKG":"Hong Kong","MFM":"Macau","TPE":"Taipei","KHH":"Kaohsiung","MNL":"Manila","CRK":"Clark","CEB":"Cebu","SGN":"Ho Chi Minh City","HAN":"Hanoi","DAD":"Da Nang","CXR":"Nha Trang","PQC":"Phu Quoc","CGK":"Jakarta","DPS":"Bali","SUB":"Surabaya","PEN":"Penang","BKI":"Kota Kinabalu","KCH":"Kuching","JHB":"Johor Bahru","HKT":"Phuket","CNX":"Chiang Mai","RGN":"Yangon","PNH":"Phnom Penh","VTE":"Vientiane","BWN":"Bandar Seri Begawan","COK":"Kochi","BLR":"Bengaluru","MAA":"Chennai","CMB":"Colombo"};
+
+/* ── check the same trip elsewhere ───────────────────────────────────
+   The same formulas flightwatch/compare.py uses for the Telegram alerts,
+   so a link here and a link in your phone go to the same search. Google
+   Flights is the exception: its links are protobuf-encoded by the search
+   code itself and cannot be built in a browser, so they are read from
+   data/latest.json and are only present for the most recent run.
+   Every one of these is best effort - booking sites change their search
+   formats without warning, and a stale link lands on the site's own
+   search page rather than breaking anything.                            */
+
+const yymmdd = (d) => d.slice(2, 4) + d.slice(5, 7) + d.slice(8, 10);
+const dmy = (d) => `${d.slice(8, 10)}-${d.slice(5, 7)}-${d.slice(0, 4)}`;
+
+const CMP = {
+  Trip: (frm, to, out, back) => {
+    const p = new URLSearchParams({
+      dcity: frm.toLowerCase(), acity: to.toLowerCase(), ddate: out,
+      triptype: back ? "rt" : "ow", class: "y", quantity: "1",
+      locale: "en-SG", curr: "SGD",
+    });
+    if (back) p.set("rdate", back);
+    return "https://www.trip.com/flights/showfarefirst?" + p;
+  },
+  Traveloka: (frm, to, out, back) =>
+    "https://www.traveloka.com/en-sg/flight/fullsearch?" + new URLSearchParams({
+      ap: `${frm}.${to}`,
+      dt: `${dmy(out)}.${back ? dmy(back) : "NA"}`,
+      ps: "1.0.0", sc: "ECONOMY",
+    }),
+  Skyscanner: (frm, to, out, back) =>
+    `https://www.skyscanner.com.sg/transport/flights/${frm.toLowerCase()}/` +
+    `${to.toLowerCase()}/${yymmdd(out)}${back ? "/" + yymmdd(back) : ""}/` +
+    "?adultsv2=1&cabinclass=economy",
+};
+
+/* Grouped exactly as compare.py groups them: a round-trip quote is one
+   ticket and gets one set; a one-way pair is two tickets bought apart, so
+   each leg is searched on its own - a round-trip search would price a
+   different product. */
+function checkLinks(sig, row) {
+  const p = parseSig(sig);
+  const google = (LATEST.links || {})[sig] || null;
+  const names = Object.keys(CMP);
+
+  if (!row[4]) {
+    const [frm, to] = row[5] || ["SIN", p.to];
+    return [{
+      title: "Check this trip on",
+      links: (google || []).map(([, u]) => ["Google Flights", u, true])
+        .concat(names.map((n) => [n, CMP[n](frm, to, p.out, p.back), false])),
+    }];
+  }
+  return [["outbound", row[3], p.out], ["return", row[4], p.back]]
+      .map(([label, fp, date], n) => {
+    const frm = fp[4], to = fp[5];
+    const g = google && google[n] ? [["Google Flights", google[n][1], true]] : [];
+    return {
+      title: `Check the ${label} leg on`,
+      links: g.concat(names.map((k) => [k, CMP[k](frm, to, date, null), false])),
+    };
+  });
+}
+
+function linksHtml(groups, compact) {
+  return groups.map((g) => `
+    ${compact ? "" : `<div class="d-when">${esc(g.title)}</div>`}
+    <div class="links">${g.links.map(([name, url, isG]) =>
+      `<a href="${esc(url)}" target="_blank" rel="noopener noreferrer"
+          class="${isG ? "gf" : ""}">${esc(name)}</a>`).join("")}</div>`).join("");
+}
+
+const SWATCH = ["--s1","--s2","--s3","--s4","--s5","--s6"];
+const $ = (id) => document.getElementById(id);
+const city = (code) => CITIES[code] || code;
+
+/* ── data ───────────────────────────────────────────────────────────── */
+
+let RUNS = [];      // [{t: Date, rows: [...]}]
+let SERIES = [];    // [{key, sig, ok, label, city, points: Map(runIndex -> row)}]
+let LATEST = {};    // the newest run's exact Google Flights links, by signature
+let loadedMonths = [];
+let detailKey = null;
+let selected = new Set();
+let cityFilter = new Set();
+let show = { rules: true, any: true };
+
+function monthsToTry() {
+  const out = [];
+  const [y0, m0] = FIRST_MONTH.split("-").map(Number);
+  let y = y0, m = m0;
+  // Static hosting cannot list a directory, so the months are probed by name.
+  // Only as far as this one - reaching into the future just prints 404s.
+  // The exception is the last days of a month, when a run may already have
+  // opened the next file.
+  const now = new Date();
+  const rollover = now.getUTCDate() >= 28 ? 1 : 0;
+  const yEnd = now.getUTCFullYear(), mEnd = now.getUTCMonth() + 1 + rollover;
+  while (y < yEnd || (y === yEnd && m <= mEnd)) {
+    out.push(`${y}-${String(m).padStart(2, "0")}`);
+    m += 1; if (m > 12) { m = 1; y += 1; }
+  }
+  return out;
+}
+
+async function loadSeries(months) {
+  const files = await Promise.all((months || monthsToTry()).map(async (m) => {
+    try {
+      const res = await fetch(`data/series/${m}.jsonl`, { cache: "no-store" });
+      if (!res.ok) return "";
+      return await res.text();
+    } catch { return ""; }
+  }));
+  const runs = [];
+  for (const text of files) {
+    for (const line of text.split("\n")) {
+      if (!line.trim()) continue;
+      try {
+        const d = JSON.parse(line);
+        runs.push({ t: new Date(d.ts), rows: d.rows || [] });
+      } catch { /* a half-written line is not worth losing the file over */ }
+    }
+  }
+  runs.sort((a, b) => a.t - b.t);
+  return runs;
+}
+
+/* "TAO/BJS/2026-12-19/2026-12-28/one-way pair" */
+function parseSig(sig) {
+  const p = String(sig).split("/");
+  return { to: p[0], from: p[1], out: p[2], back: p[3], source: p[4] || "" };
+}
+
+const DMY = (iso) => {
+  const d = new Date(iso + "T00:00:00Z");
+  return `${d.getUTCDate()} ${["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"][d.getUTCMonth()]}`;
+};
+
+function labelFor(sig, ok) {
+  const p = parseSig(sig);
+  const where = p.to === p.from
+    ? city(p.to)
+    : `${city(p.to)} in / ${city(p.from)} out`;
+  // Same city, same dates, one ticket or two - genuinely different trips at
+  // different prices. Leaving the ticket count out put two identical-looking
+  // rows in the legend against different lines.
+  const dates = p.out.slice(0, 7) === p.back.slice(0, 7)
+    ? `${Number(p.out.slice(8))}–${DMY(p.back)}`
+    : `${DMY(p.out)}–${DMY(p.back)}`;
+  const bits = [where, dates,
+                p.source === "round-trip" ? "1 ticket" : "2 tickets"];
+  if (!ok) bits.push("any transit");
+  return bits.join(" · ");
+}
+
+function buildSeries(runs) {
+  const map = new Map();
+  runs.forEach((run, i) => {
+    for (const row of run.rows) {
+      const [sig, total, ok] = row;
+      const key = `${sig}|${ok}`;
+      if (!map.has(key)) {
+        const p = parseSig(sig);
+        map.set(key, {
+          key, sig, ok: !!ok, label: labelFor(sig, ok),
+          city: city(p.to), points: new Map(),
+        });
+      }
+      map.get(key).points.set(i, row);
+    }
+  });
+  return [...map.values()];
+}
+
+/* A row carries both numbers: what a fetch parsed, and what a browser read
+   off the page when one was opened. The read one is the price to act on -
+   it is what a person sees - but the parsed one is never discarded, because
+   the gap between them is the whole reason the browser check exists. */
+const priceAt = (row) => (row[6] == null ? row[1] : row[6]);
+const wasRead = (row) => row[6] != null;
+
+const lastPrice = (s) => {
+  let best = null;
+  for (const [i, row] of s.points) if (best === null || i > best[0]) best = [i, row];
+  return best ? priceAt(best[1]) : Infinity;
+};
+
+function visibleSeries() {
+  return SERIES
+    .filter((s) => (s.ok ? show.rules : show.any))
+    .filter((s) => !cityFilter.size || cityFilter.has(s.city))
+    .sort((a, b) => lastPrice(a) - lastPrice(b));
+}
+
+/* ── hero ───────────────────────────────────────────────────────────── */
+
+function renderHero() {
+  const vis = visibleSeries();
+  if (!RUNS.length || !vis.length) {
+    $("hero").innerHTML = `<div class="empty">${
+      RUNS.length ? "Nothing found for these cities yet."
+                  : "No runs recorded yet — the first one to finish will show up here."
+    }</div>`;
+    return;
+  }
+  const cheapest = vis[0];
+  const now = lastPrice(cheapest);
+  const idx = [...cheapest.points.keys()].sort((a, b) => a - b);
+  const first = priceAt(cheapest.points.get(idx[0]));
+  const lastRow = cheapest.points.get(idx[idx.length - 1]);
+  const diff = now - first;
+  const dir = diff < 0 ? "down" : "up";
+  const arrow = diff < 0 ? "↓" : "↑";
+
+  $("hero").innerHTML = `
+    <div class="hero-fig">S$${now.toLocaleString()}</div>
+    <div class="hero-meta">${cheapest.label}</div>
+    <div class="hero-meta">${wasRead(lastRow)
+      ? `Read off the page in a browser${lastRow[6] < lastRow[1]
+          ? ` — the feed quoted S$${lastRow[1]}` : ""}`
+      : "Quoted by the search feed; not opened in a browser this run"}</div>
+    <div class="hero-meta" style="margin-top:8px">
+      ${diff === 0
+        ? "Unchanged since it was first seen"
+        : `<span class="delta ${dir}">${arrow} S$${Math.abs(diff)}</span>
+           since first seen on ${RUNS[idx[0]].t.toLocaleDateString(undefined,
+             { day: "numeric", month: "short" })}`}
+    </div>`;
+}
+
+/* ── chart ──────────────────────────────────────────────────────────── */
+
+const SVGNS = "http://www.w3.org/2000/svg";
+const el = (n, a = {}) => {
+  const e = document.createElementNS(SVGNS, n);
+  for (const k in a) e.setAttribute(k, a[k]);
+  return e;
+};
+
+let geom = null;
+
+function renderChart() {
+  const host = $("plot");
+  host.textContent = "";
+  $("legend").textContent = "";
+  geom = null;
+
+  const vis = visibleSeries();
+  if (!RUNS.length) {
+    host.innerHTML = `<div class="empty">
+      Nothing recorded yet. Every run from now on adds a point to this chart.</div>`;
+    return;
+  }
+  if (!vis.length) {
+    host.innerHTML = `<div class="empty">No trips match these filters.</div>`;
+    return;
+  }
+
+  // Default selection: the cheapest few, so the chart opens readable.
+  if (!selected.size) vis.slice(0, SERIES_CAP).forEach((s) => selected.add(s.key));
+  const drawn = vis.filter((s) => selected.has(s.key)).slice(0, SERIES_CAP);
+  const context = vis.filter((s) => !selected.has(s.key));
+
+  const W = Math.max(320, host.clientWidth || 640);
+  const isNarrow = W < 560;
+  const H = isNarrow ? 300 : 340;
+  const labelled = !isNarrow && drawn.length <= 4;
+  const M = { t: 14, r: labelled ? 118 : 16, b: 30, l: 46 };
+  const iw = W - M.l - M.r, ih = H - M.t - M.b;
+
+  // The scale belongs to the lines you chose. Letting one S$1,400 outlier in
+  // the background set the top squashes everything you actually care about
+  // into the bottom fifth of the chart.
+  const prices = [];
+  for (const s of drawn) for (const [, row] of s.points) {
+    prices.push(priceAt(row));
+    if (wasRead(row)) prices.push(row[1]);   // keep the parsed line on-scale
+  }
+  let lo = Math.min(...prices), hi = Math.max(...prices);
+  const pad = Math.max(20, (hi - lo) * 0.12);
+  lo = Math.max(0, Math.floor((lo - pad) / 25) * 25);
+  hi = Math.ceil((hi + pad) / 25) * 25;
+
+  const t0 = RUNS[0].t.getTime();
+  const t1 = RUNS[RUNS.length - 1].t.getTime();
+  const span = Math.max(1, t1 - t0);
+  const X = (i) => M.l + ((RUNS[i].t.getTime() - t0) / span) * iw;
+  const Y = (v) => M.t + ih - ((v - lo) / Math.max(1, hi - lo)) * ih;
+
+  const svg = el("svg", {
+    viewBox: `0 0 ${W} ${H}`, role: "img",
+    "aria-label": `Price over time for ${drawn.length} trips`,
+  });
+
+  // grid + y ticks
+  const step = niceStep(hi - lo);
+  for (let v = Math.ceil(lo / step) * step; v <= hi; v += step) {
+    svg.appendChild(el("line", {
+      x1: M.l, x2: M.l + iw, y1: Y(v), y2: Y(v),
+      stroke: "var(--grid)", "stroke-width": 1,
+    }));
+    const tx = el("text", {
+      x: M.l - 8, y: Y(v) + 4, "text-anchor": "end",
+      fill: "var(--muted)", "font-size": 11,
+      style: "font-variant-numeric:tabular-nums",
+    });
+    tx.textContent = v;
+    svg.appendChild(tx);
+  }
+  svg.appendChild(el("line", {
+    x1: M.l, x2: M.l + iw, y1: M.t + ih, y2: M.t + ih,
+    stroke: "var(--axis)", "stroke-width": 1,
+  }));
+
+  // x ticks: the ends, and the midpoint only when it will not run into them.
+  // Early runs cluster, so on a phone the middle label lands on top of the
+  // first one and the two print as one smudge.
+  const mid = Math.floor((RUNS.length - 1) / 2);
+  const ticks = [0, RUNS.length - 1];
+  const GAP = 80;  // a "12 Sep" label is ~38px wide; this clears two of them
+  if (iw > 340 && X(mid) - X(0) > GAP && X(RUNS.length - 1) - X(mid) > GAP) {
+    ticks.splice(1, 0, mid);
+  }
+  for (const i of uniq(ticks)) {
+    const tx = el("text", {
+      x: clamp(X(i), M.l + 14, M.l + iw - 14), y: H - 10,
+      "text-anchor": i === 0 ? "start" : i === RUNS.length - 1 ? "end" : "middle",
+      fill: "var(--muted)", "font-size": 11,
+    });
+    tx.textContent = RUNS[i].t.toLocaleDateString(undefined,
+      { day: "numeric", month: "short" });
+    svg.appendChild(tx);
+  }
+
+  // Context lines: the nearest rivals, recessive and hueless, clipped to the
+  // plot so they give a sense of the field without redrawing the scale. Only
+  // the closest few - a hundred grey lines is not context, it is noise.
+  const clip = el("clipPath", { id: "plotclip" });
+  clip.appendChild(el("rect", { x: M.l, y: M.t, width: iw, height: ih }));
+  svg.appendChild(clip);
+  const ctxg = el("g", { "clip-path": "url(#plotclip)" });
+  for (const s of context.slice(0, CONTEXT_CAP)) {
+    for (const seg of segments(s)) {
+      if (seg.length < 2) continue;
+      ctxg.appendChild(el("polyline", {
+        points: seg.map(([i, v]) => `${X(i)},${Y(v)}`).join(" "),
+        fill: "none", stroke: "var(--ctx)", "stroke-width": 1,
+        "stroke-linecap": "round", opacity: .45,
+      }));
+    }
+  }
+  svg.appendChild(ctxg);
+
+  // selected lines
+  drawn.forEach((s, n) => {
+    const colour = `var(${SWATCH[n]})`;
+    s._colour = colour;
+    // Where a browser read the page, show what the feed said too - same hue,
+    // dashed and faded - so the correction is visible rather than silent.
+    if ([...s.points.values()].some(wasRead)) {
+      for (const seg of segments(s, (r) => r[1])) {
+        if (seg.length < 2) continue;
+        svg.appendChild(el("polyline", {
+          points: seg.map(([i, v]) => `${X(i)},${Y(v)}`).join(" "),
+          fill: "none", stroke: colour, "stroke-width": 1.5,
+          "stroke-dasharray": "3 3", opacity: .38,
+          "stroke-linejoin": "round", "stroke-linecap": "round",
+        }));
+      }
+    }
+    for (const seg of segments(s)) {
+      if (seg.length === 1) {
+        svg.appendChild(el("circle", {
+          cx: X(seg[0][0]), cy: Y(seg[0][1]), r: 4, fill: colour,
+          stroke: "var(--surface)", "stroke-width": 2,
+        }));
+        continue;
+      }
+      svg.appendChild(el("polyline", {
+        points: seg.map(([i, v]) => `${X(i)},${Y(v)}`).join(" "),
+        fill: "none", stroke: colour, "stroke-width": 2,
+        "stroke-linejoin": "round", "stroke-linecap": "round",
+      }));
+    }
+  });
+
+  // Direct labels up to four lines; past that they collide into illegibility
+  // and the legend is the honest place to carry identity. The label names
+  // whatever actually tells the lines apart - six trips to the same city
+  // differ by their dates, so "Qingdao" six times says nothing.
+  const oneCity = new Set(drawn.map((s) => s.city)).size === 1;
+  if (labelled) {
+    const tags = drawn.map((s) => {
+      const i = Math.max(...s.points.keys());
+      const v = priceAt(s.points.get(i));
+      return { s, i, y: Y(v), v };
+    }).sort((a, b) => a.y - b.y);
+    for (let n = 1; n < tags.length; n++) {
+      if (tags[n].y - tags[n - 1].y < 15) tags[n].y = tags[n - 1].y + 15;
+    }
+    for (const tag of tags) {
+      const g = el("g");
+      const tx = el("text", {
+        x: M.l + iw + 10, y: Math.min(tag.y + 4, H - 4),
+        fill: "var(--ink-2)", "font-size": 11.5,
+      });
+      tx.textContent = oneCity
+        ? `${DMY(parseSig(tag.s.sig).back)} · ${tag.v}`
+        : `${trim(tag.s.city, 11)} ${tag.v}`;
+      g.appendChild(el("line", {
+        x1: X(tag.i) + 3, x2: M.l + iw + 6,
+        y1: Y(tag.v), y2: Math.min(tag.y, H - 8),
+        stroke: tag.s._colour, "stroke-width": 1, opacity: .45,
+      }));
+      g.appendChild(tx);
+      svg.appendChild(g);
+    }
+  }
+
+  const cross = el("line", {
+    y1: M.t, y2: M.t + ih, stroke: "var(--axis)", "stroke-width": 1,
+    opacity: 0, "pointer-events": "none",
+  });
+  svg.appendChild(cross);
+  const dots = el("g", { "pointer-events": "none" });
+  svg.appendChild(dots);
+
+  host.appendChild(svg);
+
+  // A trip seen once is a dot, not a line, and a chart of dots reads as
+  // broken rather than young. Say which it is.
+  const seen = drawn.reduce((n, s) => n + s.points.size, 0) / drawn.length;
+  if (seen < 2.5) {
+    const hint = document.createElement("div");
+    hint.className = "note";
+    hint.textContent = RUNS.length < 3
+      ? "Only a run or two recorded so far — lines appear as more runs land."
+      : "These trips have only turned up in a couple of runs, so they show as " +
+        "points. A gap means the trip was not found that run, not that the " +
+        "check was skipped.";
+    host.appendChild(hint);
+  }
+
+  geom = { svg, X, Y, M, iw, ih, W, H, drawn, cross, dots };
+  wireHover();
+  renderLegend(drawn, context);
+}
+
+function segments(s, pick = priceAt) {
+  const out = [];
+  let run = [];
+  for (let i = 0; i < RUNS.length; i++) {
+    if (s.points.has(i)) run.push([i, pick(s.points.get(i))]);
+    else if (run.length) { out.push(run); run = []; }
+  }
+  if (run.length) out.push(run);
+  return out;
+}
+
+const uniq = (a) => [...new Set(a)].filter((v) => v >= 0);
+const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
+const trim = (s, n) => (s.length > n ? s.slice(0, n - 1) + "…" : s);
+function niceStep(range) {
+  const raw = range / 5;
+  const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+  return [1, 2, 2.5, 5, 10].map((m) => m * mag).find((v) => v >= raw) || mag * 10;
+}
+
+/* ── hover / tap ────────────────────────────────────────────────────── */
+
+function wireHover() {
+  const { svg } = geom;
+  const move = (ev) => {
+    const pt = ev.touches ? ev.touches[0] : ev;
+    const box = svg.getBoundingClientRect();
+    const scale = geom.W / box.width;
+    const x = (pt.clientX - box.left) * scale;
+    if (x < geom.M.l - 8 || x > geom.M.l + geom.iw + 8) return hideTip();
+    let near = 0, bestD = Infinity;
+    for (let i = 0; i < RUNS.length; i++) {
+      const d = Math.abs(geom.X(i) - x);
+      if (d < bestD) { bestD = d; near = i; }
+    }
+    showAt(near, pt.clientX, pt.clientY);
+  };
+  svg.addEventListener("pointermove", move);
+  svg.addEventListener("pointerdown", move);
+  svg.addEventListener("pointerleave", hideTip);
+  document.addEventListener("scroll", hideTip, { passive: true });
+
+  // A tap opens the trip you tapped nearest to - the line, not just the run -
+  // so the links land under the flight you were actually looking at.
+  svg.addEventListener("click", (ev) => {
+    const box = svg.getBoundingClientRect();
+    const scale = geom.W / box.width;
+    const x = (ev.clientX - box.left) * scale;
+    const y = (ev.clientY - box.top) * scale;
+    let bestRun = 0, d = Infinity;
+    for (let i = 0; i < RUNS.length; i++) {
+      const dx = Math.abs(geom.X(i) - x);
+      if (dx < d) { d = dx; bestRun = i; }
+    }
+    let pick = null, best = Infinity;
+    for (const s of geom.drawn) {
+      const row = s.points.get(bestRun);
+      if (!row) continue;
+      const dy = Math.abs(geom.Y(priceAt(row)) - y);
+      if (dy < best) { best = dy; pick = s; }
+    }
+    if (pick) {
+      openDetail(pick.key);
+      // A touch never fires pointerleave, so without this the tooltip sits
+      // over the chart for the rest of the session.
+      hideTip();
+      $("detail").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    }
+  });
+}
+
+function fmtFlight(fp) {
+  if (!fp) return "";
+  const [air, dep, arr, stops] = fp;
+  const hm = (iso) => iso.slice(11, 16);
+  const day = (iso) => iso.slice(8, 10);
+  const plus = day(arr) !== day(dep) ? "+1" : "";
+  return `${air} · ${hm(dep)}→${hm(arr)}${plus} · ${
+    stops === 0 ? "direct" : stops + " stop"}`;
+}
+
+function showAt(i, cx, cy) {
+  const { dots, cross, X, Y, drawn } = geom;
+  dots.textContent = "";
+  cross.setAttribute("x1", X(i));
+  cross.setAttribute("x2", X(i));
+  cross.setAttribute("opacity", ".6");
+
+  const rows = [];
+  drawn.forEach((s, n) => {
+    const row = s.points.get(i);
+    if (!row) return;
+    dots.appendChild(el("circle", {
+      cx: X(i), cy: Y(priceAt(row)), r: 4.5, fill: `var(${SWATCH[n]})`,
+      stroke: "var(--surface)", "stroke-width": 2,
+    }));
+    rows.push({ s, row, n });
+  });
+
+  const tip = $("tip");
+  if (!rows.length) { hideTip(); return; }
+  rows.sort((a, b) => priceAt(a.row) - priceAt(b.row));
+  tip.innerHTML =
+    `<div class="t-h">${RUNS[i].t.toLocaleString(undefined,
+      { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>` +
+    rows.map(({ s, row, n }) => `
+      <div class="t-r">
+        <span class="t-sw" style="background:var(${SWATCH[n]})"></span>
+        <span>
+          <span class="t-p">S$${priceAt(row)}</span> ${esc(s.label)}
+          ${wasRead(row)
+            ? `<span class="t-d">read off the page${
+                row[6] < row[1] ? `, feed said S$${row[1]}` : ""}</span>` : ""}
+          ${row[3] ? `<div class="t-d">out · ${esc(fmtFlight(row[3]))}</div>` : ""}
+          ${row[4] ? `<div class="t-d">back · ${esc(fmtFlight(row[4]))}</div>` : ""}
+        </span>
+      </div>`).join("");
+  tip.hidden = false;
+  const w = tip.offsetWidth, h = tip.offsetHeight;
+  tip.style.left = clamp(cx + 14, 8, innerWidth - w - 8) + "px";
+  tip.style.top = clamp(cy - h - 14, 8, innerHeight - h - 8) + "px";
+}
+
+/* ── detail panel: the flight, the price, then the links ────────────── */
+
+function openDetail(key) {
+  detailKey = key;
+  const s = SERIES.find((x) => x.key === key);
+  const box = $("detail");
+  if (!s) { box.hidden = true; return; }
+
+  const idx = [...s.points.keys()].sort((a, b) => a - b);
+  const last = idx[idx.length - 1];
+  const row = s.points.get(last);
+  const stale = last !== RUNS.length - 1;
+  const read = wasRead(row);
+
+  const legLine = (label, fp) => fp ? `
+    <div class="d-leg">
+      <b>${label}</b> ${esc(fp[4])}→${esc(fp[5])}
+      <span class="d-air">· ${esc(fmtFlight(fp))}</span>
+    </div>` : "";
+
+  box.innerHTML = `
+    <div class="d-top">
+      <div>
+        <div class="d-trip">${esc(s.label)}</div>
+        <div class="d-when">
+          ${stale
+            ? `Last seen ${RUNS[last].t.toLocaleString(undefined,
+                { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}
+               — not in the newest run`
+            : `Seen in ${idx.length} run${idx.length === 1 ? "" : "s"}`}
+        </div>
+      </div>
+      <div class="row" style="gap:6px">
+        <div class="d-price">S$${priceAt(row)}</div>
+        <button class="d-close" aria-label="Close">×</button>
+      </div>
+    </div>
+    <div class="d-when" style="margin-top:8px">${read
+      ? (row[6] < row[1]
+          ? `Read off the page — the search feed quoted S$${row[1]}, so this is
+             S$${row[1] - row[6]} cheaper than the alert list would say`
+          : "Read off the page in a browser")
+      : "Quoted by the search feed. Only the few cheapest trips each run get "
+        + "opened in a browser, and this one was not."}</div>
+    ${legLine("Out", row[3])}
+    ${row[4] ? legLine("Back", row[4])
+             : `<div class="d-leg d-air">Back ${DMY(parseSig(s.sig).back)}
+                 · priced as one ticket, so Google details only the outbound</div>`}
+    ${linksHtml(checkLinks(s.sig, row), false)}
+    ${(LATEST.links || {})[s.sig] ? "" :
+      `<div class="note">Google's exact link is kept for the newest run only —
+        this trip was not in it, so the sites above search by route and date.</div>`}`;
+
+  box.hidden = false;
+  box.querySelector(".d-close").onclick = () => {
+    detailKey = null; box.hidden = true;
+  };
+}
+
+function hideTip() {
+  $("tip").hidden = true;
+  if (geom) { geom.cross.setAttribute("opacity", 0); geom.dots.textContent = ""; }
+}
+
+const esc = (s) => String(s).replace(/[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+/* ── legend & table ─────────────────────────────────────────────────── */
+
+function renderLegend(drawn, context) {
+  const box = $("legend");
+  box.textContent = "";
+  const add = (s, colour, on, n) => {
+    const b = document.createElement("button");
+    b.className = "lg";
+    b.setAttribute("aria-pressed", on ? "true" : "false");
+    const lastRow = s.points.get(Math.max(...s.points.keys()));
+    b.innerHTML = `<span class="sw" style="background:${colour}"></span>
+      <span>${esc(s.label)} <span class="px">S$${lastPrice(s)}</span>${
+        wasRead(lastRow) ? ' <span class="t-d">· checked</span>' : ""}</span>`;
+    b.onclick = () => {
+      if (selected.has(s.key)) selected.delete(s.key);
+      else if (selected.size < SERIES_CAP) selected.add(s.key);
+      else return;
+      renderChart();
+    };
+    box.appendChild(b);
+  };
+  drawn.forEach((s, n) => add(s, `var(${SWATCH[n]})`, true, n));
+  context.slice(0, LEGEND_CAP).forEach((s) => add(s, "var(--ctx)", false));
+  if (context.length > LEGEND_CAP) {
+    const more = document.createElement("span");
+    more.className = "note";
+    more.textContent =
+      `+${context.length - LEGEND_CAP} more trips — open Table to see them all`;
+    box.appendChild(more);
+  }
+}
+
+function renderTable() {
+  const vis = visibleSeries();
+  const last = RUNS.length - 1;
+  const rows = vis.map((s) => {
+    const idx = [...s.points.keys()].sort((a, b) => a - b);
+    const cur = s.points.get(idx[idx.length - 1]);
+    const first = priceAt(s.points.get(idx[0]));
+    return { s, cur, first, seen: idx.length, fresh: idx[idx.length - 1] === last };
+  });
+  $("table-wrap").innerHTML = `
+    <table>
+      <thead><tr>
+        <th>Trip</th><th class="n">Now</th><th class="n">Change</th>
+        <th class="n">Runs</th><th>Flights &amp; where to check them</th>
+      </tr></thead>
+      <tbody>${rows.map(({ s, cur, first, seen, fresh }) => {
+        const d = priceAt(cur) - first;
+        return `<tr>
+          <td>${esc(s.label)}${fresh ? "" :
+            ' <span class="t-d">(not in the latest run)</span>'}</td>
+          <td class="n">S$${priceAt(cur)}${wasRead(cur)
+            ? `<br><span class="t-d">checked${
+                cur[6] < cur[1] ? `, feed S$${cur[1]}` : ""}</span>` : ""}</td>
+          <td class="n" style="color:${d < 0 ? "var(--good)" : d > 0 ? "var(--bad)" : "inherit"}">
+            ${d === 0 ? "—" : (d < 0 ? "−" : "+") + "S$" + Math.abs(d)}</td>
+          <td class="n">${seen}</td>
+          <td class="t-d">
+            ${esc(fmtFlight(cur[3]))}${cur[4] ? "<br>" + esc(fmtFlight(cur[4])) : ""}
+            ${linksHtml(checkLinks(s.sig, cur), true)}
+          </td>
+        </tr>`;
+      }).join("")}</tbody>
+    </table>`;
+}
+
+/* ── filters ────────────────────────────────────────────────────────── */
+
+function renderCityFilter() {
+  const box = $("city-filter");
+  box.textContent = "";
+  // Cheapest cities first, and only as many as fit a thumb - the tail is
+  // reachable through the table rather than four rows of chips.
+  const cheapest = new Map();
+  for (const s of SERIES) {
+    const p = lastPrice(s);
+    if (!cheapest.has(s.city) || p < cheapest.get(s.city)) cheapest.set(s.city, p);
+  }
+  const names = [...cheapest.keys()]
+    .sort((a, b) => cheapest.get(a) - cheapest.get(b)).slice(0, 12);
+  if (names.length < 2) return;
+  for (const name of names) {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = name;
+    b.setAttribute("aria-pressed", cityFilter.has(name) ? "true" : "false");
+    b.onclick = () => {
+      cityFilter.has(name) ? cityFilter.delete(name) : cityFilter.add(name);
+      selected.clear();
+      draw();
+    };
+    box.appendChild(b);
+  }
+}
+
+function toggle(id, key) {
+  $(id).onclick = () => {
+    show[key] = !show[key];
+    $(id).setAttribute("aria-pressed", show[key] ? "true" : "false");
+    selected.clear();
+    draw();
+  };
+}
+
+function draw() {
+  renderCityFilter();
+  renderHero();
+  renderChart();
+  // Keep the open trip open across a filter change, unless it filtered away.
+  if (detailKey) {
+    if (SERIES.some((s) => s.key === detailKey)) openDetail(detailKey);
+    else { detailKey = null; $("detail").hidden = true; }
+  }
+  if ($("t-table").getAttribute("aria-pressed") === "true") renderTable();
+  const last = RUNS[RUNS.length - 1];
+  $("foot").textContent = RUNS.length
+    ? `${RUNS.length} runs recorded · last ${last.t.toLocaleString(undefined,
+        { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+      + (detailKey ? "" : " · tap the chart to open a trip and its check links")
+    : "";
+}
+
+/* ── the run panel ──────────────────────────────────────────────────── */
+
+const picked = new Set(CORE);
+
+function renderPicker() {
+  const box = $("pick");
+  box.textContent = "";
+  const all = [...new Set([...CORE, ...picked])];
+  for (const name of all) {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.textContent = name;
+    b.setAttribute("aria-pressed", picked.has(name) ? "true" : "false");
+    b.onclick = () => {
+      picked.has(name) ? picked.delete(name) : picked.add(name);
+      renderPicker();
+    };
+    box.appendChild(b);
+  }
+}
+
+function fillMoreSelect() {
+  const sel = $("more");
+  sel.innerHTML = `<option value="">Choose a city…</option>` +
+    [...new Set(Object.values(CITIES))].sort()
+      .filter((n) => n !== "Singapore")
+      .map((n) => `<option>${esc(n)}</option>`).join("");
+  sel.onchange = () => {
+    if (sel.value) { picked.add(sel.value); renderPicker(); sel.value = ""; }
+  };
+}
+
+const token = () => { try { return localStorage.getItem(TOKEN_KEY) || ""; } catch { return ""; } };
+
+function renderRunPanel() {
+  const has = !!token();
+  $("connect").hidden = has;
+  $("run").hidden = !has;
+  $("forget").hidden = !has;
+}
+
+function say(html) { $("run-status").innerHTML = html; }
+
+async function dispatch() {
+  if (!picked.size) return say("Pick at least one city first.");
+  $("run").disabled = true;
+  say("Starting…");
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/dispatches`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token()}`,
+          Accept: "application/vnd.github+json",
+          "X-GitHub-Api-Version": "2022-11-28",
+        },
+        body: JSON.stringify({
+          ref: BRANCH,
+          inputs: { only: [...picked].join(","), summary: "true" },
+        }),
+      });
+    if (res.status === 204) {
+      say(`Started for <b>${esc([...picked].join(", "))}</b>. Watching…`);
+      setTimeout(poll, 4000);
+    } else if (res.status === 401 || res.status === 403) {
+      say("GitHub rejected that token. It needs Actions: read and write on this repository.");
+      $("run").disabled = false;
+    } else {
+      const body = await res.text();
+      say(`GitHub said ${res.status}. ${esc(body.slice(0, 160))}`);
+      $("run").disabled = false;
+    }
+  } catch (err) {
+    say(`Could not reach GitHub: ${esc(err.message)}`);
+    $("run").disabled = false;
+  }
+}
+
+let polls = 0;
+async function poll() {
+  try {
+    const res = await fetch(
+      `https://api.github.com/repos/${REPO}/actions/workflows/${WORKFLOW}/runs?per_page=1`, {
+        headers: {
+          Authorization: `Bearer ${token()}`,
+          Accept: "application/vnd.github+json",
+        },
+      });
+    const run = (await res.json()).workflow_runs?.[0];
+    if (!run) throw new Error("no run yet");
+    const url = run.html_url;
+    if (run.status !== "completed") {
+      say(`Running — <b>${esc(run.status.replace("_", " "))}</b>
+           · <a href="${esc(url)}" target="_blank" rel="noopener">log</a>`);
+      if (polls++ < 120) setTimeout(poll, 10000);
+      else say(`Still going. <a href="${esc(url)}" target="_blank" rel="noopener">Watch the log</a>.`);
+      return;
+    }
+    polls = 0;
+    $("run").disabled = false;
+    if (run.conclusion === "success") {
+      say(`Finished. Reloading the chart…`);
+      try {
+        const r = await fetch("data/latest.json", { cache: "no-store" });
+        if (r.ok) LATEST = await r.json();
+      } catch { /* keep the old links rather than none */ }
+      RUNS = await loadSeries(loadedMonths);
+      SERIES = buildSeries(RUNS);
+      selected.clear();
+      draw();
+      say(`Done — Telegram has the details.
+           <a href="${esc(url)}" target="_blank" rel="noopener">log</a>`);
+    } else {
+      say(`Run ${esc(run.conclusion || "ended")}.
+           <a href="${esc(url)}" target="_blank" rel="noopener">See the log</a>`);
+    }
+  } catch {
+    if (polls++ < 120) setTimeout(poll, 10000);
+    else { $("run").disabled = false; say("Lost track of the run — check Actions on GitHub."); }
+  }
+}
+
+/* ── boot ───────────────────────────────────────────────────────────── */
+
+$("save-tok").onclick = () => {
+  const v = $("tok").value.trim();
+  if (!v) return;
+  try { localStorage.setItem(TOKEN_KEY, v); } catch {
+    return say("This browser is blocking storage, so the token cannot be kept.");
+  }
+  $("tok").value = "";
+  renderRunPanel();
+  say("Connected. The button is live.");
+};
+$("forget").onclick = () => {
+  try { localStorage.removeItem(TOKEN_KEY); } catch {}
+  renderRunPanel();
+  say("Token removed from this browser.");
+};
+$("run").onclick = dispatch;
+$("t-table").onclick = () => {
+  const on = $("t-table").getAttribute("aria-pressed") !== "true";
+  $("t-table").setAttribute("aria-pressed", on ? "true" : "false");
+  $("table-wrap").hidden = !on;
+  if (on) renderTable();
+};
+toggle("t-rules", "rules");
+toggle("t-any", "any");
+
+let resizeTimer;
+addEventListener("resize", () => {
+  clearTimeout(resizeTimer);
+  resizeTimer = setTimeout(() => { hideTip(); renderChart(); }, 150);
+});
+
+renderPicker();
+fillMoreSelect();
+renderRunPanel();
+
+/* Every run records ~90 trips, so a month of history is a couple of
+   megabytes. Load the recent months, draw, and leave the rest behind a
+   button rather than making a phone download the lot to see this week. */
+async function boot() {
+  try {
+    const res = await fetch("data/latest.json", { cache: "no-store" });
+    if (res.ok) LATEST = await res.json();
+  } catch { /* links degrade to the comparison sites; nothing else cares */ }
+
+  const all = monthsToTry();
+  const recent = all.slice(-2);
+  RUNS = await loadSeries(recent);
+  loadedMonths = recent;
+  SERIES = buildSeries(RUNS);
+  draw();
+
+  const older = all.filter((m) => !recent.includes(m));
+  if (older.length && RUNS.length) {
+    const b = document.createElement("button");
+    b.className = "btn-ghost";
+    b.style.marginTop = "12px";
+    b.textContent = `Load ${older.length} earlier month${older.length > 1 ? "s" : ""}`;
+    b.onclick = async () => {
+      b.disabled = true; b.textContent = "Loading…";
+      RUNS = await loadSeries(all);
+      loadedMonths = all;
+      SERIES = buildSeries(RUNS);
+      selected.clear();
+      b.remove();
+      draw();
+    };
+    $("foot").after(b);
+  }
+}
+
+boot().catch(() => {
+  $("hero").innerHTML = `<div class="empty">Could not read the price history.</div>`;
+});
+</script>
+</body>
+</html>
