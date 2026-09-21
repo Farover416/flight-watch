@@ -414,6 +414,18 @@ const lastPrice = (s) => {
   return best ? priceAt(best[1]) : Infinity;
 };
 
+/* A trip the newest run actually priced. Once the watch narrowed to three
+   cities, every city it stopped searching kept its last price forever - and
+   since those were cheap, a retired city headlined the page indefinitely
+   while the run that just happened was ignored. History stays on the chart;
+   it just cannot be the headline. */
+const isFresh = (s) => RUNS.length > 0 && s.points.has(RUNS.length - 1);
+
+function freshFirst(list) {
+  const fresh = list.filter(isFresh);
+  return fresh.length ? fresh : list;
+}
+
 function visibleSeries() {
   return SERIES
     .filter((s) => (s.ok ? show.rules : show.any))
@@ -432,7 +444,7 @@ function renderHero() {
     }</div>`;
     return;
   }
-  const cheapest = vis[0];
+  const cheapest = freshFirst(vis)[0];
   const now = lastPrice(cheapest);
   const idx = [...cheapest.points.keys()].sort((a, b) => a - b);
   const first = priceAt(cheapest.points.get(idx[0]));
@@ -444,6 +456,9 @@ function renderHero() {
   $("hero").innerHTML = `
     <div class="hero-fig">S$${now.toLocaleString()}</div>
     <div class="hero-meta">${cheapest.label}</div>
+    ${isFresh(cheapest) ? "" : `<div class="hero-meta">Last seen
+       ${RUNS[idx[idx.length - 1]].t.toLocaleDateString(undefined,
+         { day: "numeric", month: "short" })}, not in the newest run</div>`}
     <div class="hero-meta">${wasRead(lastRow)
       ? `Read off the page in a browser${lastRow[6] < lastRow[1]
           ? ` — the feed quoted S$${lastRow[1]}` : ""}`
@@ -486,7 +501,9 @@ function renderChart() {
   }
 
   // Default selection: the cheapest few, so the chart opens readable.
-  if (!selected.size) vis.slice(0, SERIES_CAP).forEach((s) => selected.add(s.key));
+  if (!selected.size) {
+    freshFirst(vis).slice(0, SERIES_CAP).forEach((s) => selected.add(s.key));
+  }
   const drawn = vis.filter((s) => selected.has(s.key)).slice(0, SERIES_CAP);
   const context = vis.filter((s) => !selected.has(s.key));
 
