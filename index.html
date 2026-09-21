@@ -84,6 +84,10 @@ svg{display:block;width:100%;height:auto;touch-action:pan-y}
 .lg .sw{width:11px;height:11px;border-radius:3px;flex:none}
 .lg[aria-pressed="false"]{opacity:.38}
 .lg .px{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.lg .eye{background:none;border:1px solid var(--ring);border-radius:7px;
+  color:var(--ink-2);min-width:30px;min-height:30px;line-height:1;margin-left:6px;
+  font-size:15px;flex:none}
+.lg .eye:hover{border-color:var(--s1);color:var(--s1)}
 table{border-collapse:collapse;width:100%;font-size:13px}
 th,td{text-align:left;padding:7px 8px;border-bottom:1px solid var(--grid);vertical-align:top}
 th{color:var(--muted);font-weight:600;font-size:11.5px;letter-spacing:.04em;text-transform:uppercase}
@@ -589,8 +593,8 @@ function renderChart() {
     for (const seg of segments(s)) {
       if (seg.length === 1) {
         svg.appendChild(el("circle", {
-          cx: X(seg[0][0]), cy: Y(seg[0][1]), r: 4, fill: colour,
-          stroke: "var(--surface)", "stroke-width": 2,
+          cx: X(seg[0][0]), cy: Y(seg[0][1]), r: 6, fill: colour,
+          stroke: "var(--surface)", "stroke-width": 2.5,
         }));
         continue;
       }
@@ -634,6 +638,34 @@ function renderChart() {
       svg.appendChild(g);
     }
   }
+
+  // Tapping a 2px line with a thumb is a coin toss. Each line gets an
+  // invisible 24px-wide copy of itself on top, so anywhere near it counts as
+  // a hit and opens that trip directly - no aiming at the dot.
+  const hits = el("g");
+  drawn.forEach((s) => {
+    const open = (ev) => {
+      ev.stopPropagation();
+      openDetail(s.key);
+      hideTip();
+      $("detail").scrollIntoView({ block: "nearest", behavior: "smooth" });
+    };
+    for (const seg of segments(s)) {
+      const shape = seg.length === 1
+        ? el("circle", { cx: X(seg[0][0]), cy: Y(seg[0][1]), r: 16 })
+        : el("polyline", {
+            points: seg.map(([i, v]) => `${X(i)},${Y(v)}`).join(" "),
+            fill: "none", "stroke-width": 24,
+            "stroke-linecap": "round", "stroke-linejoin": "round",
+          });
+      shape.setAttribute("stroke", "transparent");
+      if (shape.tagName === "circle") shape.setAttribute("fill", "transparent");
+      shape.style.cursor = "pointer";
+      shape.addEventListener("click", open);
+      hits.appendChild(shape);
+    }
+  });
+  svg.appendChild(hits);
 
   const cross = el("line", {
     y1: M.t, y2: M.t + ih, stroke: "var(--axis)", "stroke-width": 1,
@@ -757,8 +789,8 @@ function showAt(i, cx, cy) {
     const row = s.points.get(i);
     if (!row) return;
     dots.appendChild(el("circle", {
-      cx: X(i), cy: Y(priceAt(row)), r: 4.5, fill: `var(${SWATCH[n]})`,
-      stroke: "var(--surface)", "stroke-width": 2,
+      cx: X(i), cy: Y(priceAt(row)), r: 6.5, fill: `var(${SWATCH[n]})`,
+      stroke: "var(--surface)", "stroke-width": 2.5,
     }));
     rows.push({ s, row, n });
   });
@@ -868,11 +900,24 @@ function renderLegend(drawn, context) {
       <span>${esc(s.label)} <span class="px">S$${lastPrice(s)}</span>${
         wasRead(lastRow) ? ' <span class="t-d">· checked</span>' : ""}</span>`;
     b.onclick = () => {
+      // A row for a line already on the chart opens it; the eye toggles it.
+      if (on) { openDetail(s.key); hideTip(); return; }
+      if (selected.size < SERIES_CAP) selected.add(s.key);
+      else return;
+      renderChart();
+    };
+    const eye = document.createElement("button");
+    eye.className = "eye";
+    eye.setAttribute("aria-label", on ? `Hide ${s.label}` : `Show ${s.label}`);
+    eye.textContent = on ? "−" : "+";
+    eye.onclick = (ev) => {
+      ev.stopPropagation();
       if (selected.has(s.key)) selected.delete(s.key);
       else if (selected.size < SERIES_CAP) selected.add(s.key);
       else return;
       renderChart();
     };
+    b.appendChild(eye);
     box.appendChild(b);
   };
   drawn.forEach((s, n) => add(s, `var(${SWATCH[n]})`, true, n));
@@ -973,7 +1018,7 @@ function draw() {
   $("foot").textContent = RUNS.length
     ? `${RUNS.length} runs recorded · last ${last.t.toLocaleString(undefined,
         { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
-      + (detailKey ? "" : " · tap the chart to open a trip and its check links")
+      + (detailKey ? "" : " · tap any line to open that trip and its check links")
     : "";
 }
 
