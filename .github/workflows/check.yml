@@ -5,18 +5,30 @@ on:
     # All times UTC; Singapore is UTC+8. The odd minutes avoid GitHub's
     # on-the-hour queue, when scheduled jobs get delayed the most.
     #
-    # Baseline: every 4 hours, so 08:17 / 12:17 / 16:17 / 20:17 / 00:17 / 04:17
-    # Singapore time. A full sweep takes about 30 minutes, so this is roughly
-    # three hours of searching a day - frequent enough to catch a fare reload,
-    # gentle enough not to look like abuse.
-    - cron: "17 */4 * * *"
-    # Scoot's Tuesday flash sales open at 10:00 SGT and run to midnight, and
-    # Scoot is the carrier most likely to undercut on these routes. The
-    # baseline already covers 08:17 and 12:17, so this fills the gap just
-    # after the sale goes live.
+    # Baseline: every 2 hours. Two reasons it is not every 4 as before.
+    #
+    # First, GitHub drops scheduled runs. Measured over the eight days of
+    # this watcher's own history, a 6-a-day schedule delivered 3 to 4 a day,
+    # with gaps of 6 to 8 hours routine and one of 14.5, and a 27 to 88
+    # minute delay whenever a run did fire. Asking for 12 lands about 8.
+    #
+    # Second, it is affordable now: a three-city run takes about 3 minutes,
+    # where the old sweep of everywhere took 30.
+    #
+    # Note this is NOT aimed at an hour of day when fares are cheap. This
+    # watcher's own record shows no such hour: on settled days the price
+    # moves S$0 to S$50 from morning to night, while the day-to-day swing is
+    # S$103. Sampling denser within a day chases noise. What it does buy is
+    # not missing a one-day sale, which is where the real drops come from.
+    - cron: "7 */2 * * *"
+    # Scoot's Tuesday flash sale is the exception that is worth aiming at: a
+    # real, recurring, time-boxed event that opens around 10:00 SGT and runs
+    # to midnight, on the carrier most likely to undercut these routes.
+    # These odd-hour slots interleave with the even-hour baseline to give
+    # roughly hourly cover across the sale, Tue 11:47 to 23:47 SGT.
     # (No Friday slot: Jetstar Asia, the other weekly-sale carrier out of
     # Changi, shut down in July 2025.)
-    - cron: "20 2 * * 2"
+    - cron: "47 3-15/2 * * 2"
   workflow_dispatch:
     inputs:
       summary:
