@@ -4,7 +4,14 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Flight Watch</title>
-<link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'><text y='13' font-size='13'>✈</text></svg>">
+<link rel="icon" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1a1a19">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Flights">
+<meta name="description" content="Singapore to North Asia, December. What every trip costs, every run.">
 <style>
 :root{
   color-scheme: light;
@@ -1222,8 +1229,38 @@ async function boot() {
 }
 
 boot().catch(() => {
-  $("hero").innerHTML = `<div class="empty">Could not read the price history.</div>`;
+  $("hero").innerHTML = `<div class="empty">
+    ${navigator.onLine
+      ? "Could not read the price history."
+      : "Offline, and nothing saved on this device yet."}</div>`;
 });
+
+/* Installable, and readable on a plane with no signal. The service worker
+   goes to the network first, so being online always means current prices;
+   the cache is only what you get when there is no network, and the run time
+   on screen says how old it is. */
+if ("serviceWorker" in navigator) {
+  addEventListener("load", () => {
+    navigator.serviceWorker.register("sw.js").catch(() => {
+      /* No offline support, everything else works. Not worth a message. */
+    });
+  });
+}
+
+function offlineBanner() {
+  let bar = $("offline");
+  if (navigator.onLine) { if (bar) bar.remove(); return; }
+  if (bar) return;
+  bar = document.createElement("div");
+  bar.id = "offline";
+  bar.className = "note";
+  bar.style.cssText = "text-align:center;margin:0 0 -4px";
+  bar.textContent = "Offline — showing the last prices this device saw.";
+  document.querySelector("header").after(bar);
+}
+addEventListener("online", offlineBanner);
+addEventListener("offline", offlineBanner);
+offlineBanner();
 </script>
 </body>
 </html>
