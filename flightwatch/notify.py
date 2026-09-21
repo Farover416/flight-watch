@@ -177,6 +177,21 @@ def leg_line(cfg, leg) -> str:
     )
 
 
+def format_sales(sales) -> str:
+    """A sale has been announced - said first, because it expires."""
+    ours = [s for s in sales if s.ours]
+    head = ("<b>Sale on a carrier that flies your routes</b>" if ours
+            else "<b>Airline sale announced</b>")
+    lines = [head, ""]
+    for sale in sales[:5]:
+        mark = "" if sale.ours else " <i>(other carrier)</i>"
+        lines.append(f'· <a href="{esc(sale.link)}">{esc(sale.title)}</a>{mark}')
+    lines.append("")
+    lines.append("<i>From SingPromos. Prices below were checked just now, but a "
+                 "sale loading mid-run will not show until the next one.</i>")
+    return "\n".join(lines)
+
+
 def _checked(combo) -> str:
     """Mark a price a browser actually read, and what it was before.
 

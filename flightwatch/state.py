@@ -76,6 +76,21 @@ class Store:
             datetime.utcnow().isoformat(timespec="seconds") + "Z"
         )
 
+    # -- sale announcements --------------------------------------------------
+    def seen_sales(self) -> list[str]:
+        value = self.health.get("seen_sales")
+        return list(value) if isinstance(value, list) else []
+
+    def record_sales(self, sales) -> None:
+        """Remember what has been announced, newest last, bounded.
+
+        Without this the same sale is announced every run for as long as it
+        sits in the feed, which is the fastest way to make an alert ignored.
+        """
+        seen = self.seen_sales()
+        seen.extend(s.uid for s in sales if s.uid not in seen)
+        self.health["seen_sales"] = seen[-80:]
+
     # -- extended-city rotation ---------------------------------------------
     def rotation_cursor(self) -> int:
         try:

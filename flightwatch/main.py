@@ -9,8 +9,9 @@ from datetime import datetime
 
 from . import combine, config, present, search, verify
 from .models import Leg, SweepResult
-from .notify import (NoChatYet, Telegram, format_deals, format_unrestricted,
-                     format_verified)
+from . import sales as sales_feed
+from .notify import (NoChatYet, Telegram, format_deals, format_sales,
+                     format_unrestricted, format_verified)
 from .search import search_one_way, search_round_trip
 from .state import Store
 
@@ -196,6 +197,17 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         except NoChatYet as exc:
             log.warning("%s", exc)
             print("\n" + plain)
+
+    # Announcements first: a sale expires, a fare drift does not.
+    try:
+        fresh = sales_feed.new_since(sales_feed.fetch(), store.seen_sales())
+    except Exception as exc:  # never let the feed cost a run
+        log.info("sale check skipped (%s)", exc)
+        fresh = []
+    if fresh:
+        log.info("%d new sale announcement(s)", len(fresh))
+        deliver(format_sales(fresh))
+        store.record_sales(fresh)
 
     if result.looks_blocked:
         log.error("every search came back empty — Google Flights is likely blocking us")
