@@ -127,7 +127,8 @@ class Store:
 
         Rows are positional to keep the file small enough to open on a phone:
         [signature, parsed, passes_rules, outbound, return, search,
-        verified], where verified is null unless a browser read the page, and a
+        verified, verified_back], where verified is null unless a browser read
+        the page and verified_back is the return flight it found there, and a
         flight is [airlines, departure, arrival, stops, from, to] and a return
         of None means the run only ever saw a round-trip quote, which prices
         both halves but details only the outbound.
@@ -159,7 +160,7 @@ class Store:
             [combo.signature(), combo.total, ok,
              _flight(combo.out), _flight(combo.back),
              [combo.out.search_from, combo.out.search_to],
-             combo.verified]
+             combo.verified, combo.verified_back]
             for combo, ok in sorted(picked, key=lambda pair: pair[0].price)
         ]
 

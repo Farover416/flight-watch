@@ -44,6 +44,37 @@ _ROWS_JS = """() => {
   return Array.from(new Set(rows));
 }"""
 
+# Waiting until the fares exist beats sleeping for a guessed 8.5 seconds:
+# a fast response is read in two, a slow one is still read correctly.
+_HAS_ROWS_JS = """() => Array.from(document.querySelectorAll('li'))
+  .some(li => /SGD\\s?\\d/.test(li.innerText || '')
+           && /\\d{1,2}:\\d{2}\\s?(AM|PM)/.test(li.innerText || ''))"""
+
+# Google prices a round trip as one ticket and its result list only details
+# the outbound - the return is chosen on the next screen. So open the
+# cheapest outbound and read what comes back, which is also the only way to
+# learn the real total: the advertised price belongs to one specific return,
+# and the first return offered is often dearer than it.
+_OPEN_CHEAPEST_JS = """() => {
+  const rows = Array.from(document.querySelectorAll('li')).filter(
+    li => /SGD\\s?\\d/.test(li.innerText || '')
+       && /\\d{1,2}:\\d{2}\\s?(AM|PM)/.test(li.innerText || '')
+       && (li.innerText || '').length < 400);
+  if (!rows.length) return 'no rows';
+  const price = (li) => {
+    const m = (li.innerText || '').match(/SGD\\s?([\\d,]+)/);
+    return m ? parseInt(m[1].replace(/,/g, ''), 10) : Infinity;
+  };
+  const best = rows.reduce((a, b) => (price(b) < price(a) ? b : a));
+  const link = best.querySelector('[role="link"]');
+  if (!link) return 'no link';
+  link.click();
+  return 'opened';
+}"""
+
+_RETURNS_READY_JS = """() => Array.from(document.querySelectorAll('h1,h2,h3'))
+  .some(h => /returning flights/i.test(h.innerText || ''))"""
+
 _CHEAPEST_JS = """async () => {
   const tab = Array.from(document.querySelectorAll('[role="tab"]'))
     .find(b => /cheapest/i.test(b.textContent || ''));
@@ -188,43 +219,89 @@ def verify(targets_: list[dict], rows_each: int = 4,
                 locale="en-SG", viewport={"width": 1400, "height": 1000})
             page = context.new_page()
             for target in targets_:
-                parts, ok = [], True
+                one_ticket = len(target["parts"]) == 1
+                parts, returns, ok = [], [], True
                 for part_label, url in target["parts"]:
-                    fares = _read(page, target["label"], part_label, url,
-                                  rows_each, timeout_ms)
+                    fares, backs = _read(page, target["label"], part_label,
+                                         url, rows_each, timeout_ms,
+                                         follow_return=one_ticket)
                     if not fares:
                         ok = False
                         break
                     parts.append({"label": part_label, "url": url,
                                   "fares": fares})
+                    returns = backs
                 if not ok:
                     continue
-                total = sum(part["fares"][0].price for part in parts)
+                # One ticket: the total is the cheapest outbound-and-return
+                # pairing, not the headline "from" price, and not the first
+                # return offered. Two tickets: each leg is bought separately,
+                # so the total is the sum.
+                if one_ticket and returns:
+                    total = returns[0].price
+                else:
+                    total = sum(part["fares"][0].price for part in parts)
                 out[target["key"]] = {
                     "label": target["label"], "total": total, "parts": parts,
+                    "returns": returns,
                 }
-                log.info("%-28s verified S$%d", target["label"], total)
+                log.info("%-28s verified S$%d%s", target["label"], total,
+                         f" (return: {returns[0].summary[:40]})" if returns else "")
         finally:
             browser.close()
     return out
 
 
-def _read(page, label, part_label, url, rows_each, timeout_ms):
-    """The cheapest rendered fares on one search page, or [] if unreadable."""
-    tag = f"{label} {part_label}".strip()
+def _settle(page, ready_js, timeout_ms):
+    """Wait until the page has what we came for, or give up quietly."""
+    try:
+        page.wait_for_function(ready_js, timeout=timeout_ms)
+        return True
+    except Exception:
+        return False
+
+
+def _read(page, label, part_label, url, rows_each, timeout_ms,
+          follow_return=False):
+    """What one search page prices.
+
+    Returns (fares, returns): the fares listed, and - for a round trip, where
+    the list only details the outbound - the return options behind the
+    cheapest of them. ``returns`` is empty for a one-way search, which needs
+    no second step.
+    """
+    tag = f"{label} {part_label}".strip() or label
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-        page.wait_for_timeout(4000)
-        body = (page.inner_text("body") or "").lower()[:4000]
-        if any(m in body for m in _BLOCKED):
-            log.warning("%-28s not a results page - skipped", tag)
-            return []
+        if not _settle(page, _HAS_ROWS_JS, 25_000):
+            body = (page.inner_text("body") or "").lower()[:4000]
+            why = ("not a results page" if any(m in body for m in _BLOCKED)
+                   else "rendered no fares")
+            log.warning("%-28s %s - skipped", tag, why)
+            return [], []
         if page.evaluate(_CHEAPEST_JS) == "clicked":
-            page.wait_for_timeout(4500)
+            page.wait_for_timeout(2500)
+            _settle(page, _HAS_ROWS_JS, 15_000)
+
         fares = _fares_from(page.evaluate(_ROWS_JS), rows_each)
         if not fares:
             log.warning("%-28s rendered no fares", tag)
-        return fares
+            return [], []
+        if not follow_return:
+            return fares, []
+
+        opened = page.evaluate(_OPEN_CHEAPEST_JS)
+        if opened != "opened":
+            log.info("%-28s could not open the return list (%s)", tag, opened)
+            return fares, []
+        if not _settle(page, _RETURNS_READY_JS, 25_000):
+            log.info("%-28s return list did not appear", tag)
+            return fares, []
+        _settle(page, _HAS_ROWS_JS, 10_000)
+        returns = _fares_from(page.evaluate(_ROWS_JS), rows_each)
+        if not returns:
+            log.info("%-28s return list was unreadable", tag)
+        return fares, returns
     except Exception as exc:  # one bad page must not lose the rest
         log.warning("%-28s could not be read (%s)", tag, exc)
-        return []
+        return [], []

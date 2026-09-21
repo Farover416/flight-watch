@@ -865,8 +865,11 @@ function openDetail(key) {
         + "opened in a browser, and this one was not."}</div>
     ${legLine("Out", row[3])}
     ${row[4] ? legLine("Back", row[4])
-             : `<div class="d-leg d-air">Back ${DMY(parseSig(s.sig).back)}
-                 · priced as one ticket, so Google details only the outbound</div>`}
+       : row[7] ? `<div class="d-leg"><b>Back</b>
+             <span class="d-air">${esc(row[7])}</span></div>`
+       : `<div class="d-leg d-air">Back ${DMY(parseSig(s.sig).back)}
+           · one ticket, and the return is only shown after picking an
+           outbound — a browser check reads it</div>`}
     ${linksHtml(checkLinks(s.sig, row), false)}
     ${(LATEST.links || {})[s.sig] ? "" :
       `<div class="note">Google's exact link is kept for the newest run only —
@@ -958,7 +961,9 @@ function renderTable() {
             ${d === 0 ? "—" : (d < 0 ? "−" : "+") + "S$" + Math.abs(d)}</td>
           <td class="n">${seen}</td>
           <td class="t-d">
-            ${esc(fmtFlight(cur[3]))}${cur[4] ? "<br>" + esc(fmtFlight(cur[4])) : ""}
+            ${esc(fmtFlight(cur[3]))}${
+              cur[4] ? "<br>" + esc(fmtFlight(cur[4]))
+                     : cur[7] ? "<br>" + esc(cur[7]) : ""}
             ${linksHtml(checkLinks(s.sig, cur), true)}
           </td>
         </tr>`;

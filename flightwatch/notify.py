@@ -207,6 +207,11 @@ def format_verified(cfg, verified: dict) -> str:
                 f"  <a href=\"{esc(part['url'])}\">{esc(head)}open</a>")
             for fare in part["fares"]:
                 lines.append(f"    S${fare.price}  {esc(fare.summary)}")
+        # One ticket: the return is chosen on the next screen, so it is only
+        # knowable by going there. Without it you are told a price and half
+        # a trip.
+        for fare in (found.get("returns") or [])[:3]:
+            lines.append(f"    back  S${fare.price}  {esc(fare.summary)}")
         lines.append("")
     lines.append(
         "<i>Google's own Cheapest view, agency prices included — the number a "

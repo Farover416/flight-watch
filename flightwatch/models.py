@@ -106,6 +106,10 @@ class Combo:
     # between the two is never lost - it is the reason verification exists.
     verified: int | None = None
     verified_urls: tuple[tuple[str, str], ...] = ()
+    # The return flight, for a trip Google prices as one ticket. Its results
+    # list only ever details the outbound, so this is read from the screen
+    # after choosing an outbound - the only place the return is shown.
+    verified_back: str | None = None
 
     @property
     def price(self) -> int:
@@ -217,6 +221,7 @@ class Combo:
             "total": self.price,
             "parsed": self.total,
             "verified": self.verified,
+            "verified_back": self.verified_back,
             "country": self.country,
             "source": self.source,
             "open_jaw": self.is_open_jaw,

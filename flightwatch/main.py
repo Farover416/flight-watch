@@ -170,8 +170,10 @@ def _verify(cfg, result: SweepResult) -> dict:
             found = verified.get(combo.signature())
             if found is None:
                 continue
+            backs = found.get("returns") or []
             group[i] = dataclasses.replace(
                 combo, verified=found["total"],
+                verified_back=backs[0].summary if backs else None,
                 verified_urls=tuple((p["label"] or "book", p["url"])
                                     for p in found["parts"]))
     # Re-rank: a verified price that undercuts its parsed one changes the order.
