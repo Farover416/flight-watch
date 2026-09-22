@@ -158,7 +158,7 @@ def _verify(cfg, result: SweepResult) -> dict:
     log.info("verifying %d trip(s) in a browser (%d page loads)",
              len(targets), sum(len(t["parts"]) for t in targets))
     try:
-        verified = verify.verify(targets, rows_each=cfg.verify_rows)
+        verified = verify.verify(cfg, targets, rows_each=cfg.verify_rows)
     except Exception as exc:
         log.warning("verification unavailable (%s)", exc)
         return {}

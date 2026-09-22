@@ -227,11 +227,23 @@ def format_verified(cfg, verified: dict) -> str:
         # a trip.
         for fare in (found.get("returns") or [])[:3]:
             lines.append(f"    back  S${fare.price}  {esc(fare.summary)}")
+        # A different trip on the same page, kept as a different number. It
+        # is only here when its connections pass your layover rules, and for
+        # a one-ticket search it is a "from" price with a return still to
+        # choose - so it is a floor, not a total, and says so.
+        other = found.get("other")
+        if other and other["price"] < found["total"]:
+            floor = "from " if other.get("advertised") else ""
+            lines.append(
+                f"    also on this page: {floor}<b>S${other['price']}</b> — "
+                f"{esc(other['summary'][:110])}")
         lines.append("")
     lines.append(
         "<i>Google's own Cheapest view, agency prices included — the number a "
         "person sees on the page, which is lower than the airline fare the "
-        "list above quotes. Bag rules still vary by carrier.</i>"
+        "list above quotes. Each price is read off the row for that exact "
+        "flight, so the number and the itinerary beside it belong together. "
+        "Bag rules still vary by carrier.</i>"
     )
     return "\n".join(lines).rstrip()
 
