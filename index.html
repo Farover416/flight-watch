@@ -242,7 +242,7 @@ const TRIPS = [
            "Under S$900 with a checked bag." },
   { key: "taipei", label: "Taipei", dir: "data/taipei", adults: 2,
     blurb: "Singapore ⇄ Taipei, anywhere in 21 Nov – 31 Dec, 2–4 weeks away. " +
-           "Prices are for 2 adults." },
+           "Direct flights only, no checked bag. Prices are for 2 adults." },
 ];
 const tripFor = (key) => TRIPS.find((t) => t.key === key) || TRIPS[0];
 let TRIP = tripFor((location.hash || "").replace("#", ""));

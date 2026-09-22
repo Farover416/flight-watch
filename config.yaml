@@ -95,6 +95,16 @@ trips:
       adults: 2                # one of them is 14, which books as an adult
       max_total: null          # no budget to hit - report the cheapest and
                                # say when it is a new low
+      # Direct only. SIN-TPE is under five hours nonstop on Scoot, SQ, EVA
+      # and China Airlines; the one-stop routings that undercut them do it
+      # by spending most of a day in Ho Chi Minh City. Nonstop also means
+      # the layover rules above never come into play here - there is no
+      # connection to judge - so this trip is not filtered by them at all.
+      max_stops: 0
+      # No checked bag on this one, so no fee to add. Leaving the table in
+      # place would quietly inflate every fare by the estimate for a bag
+      # nobody is buying.
+      checked_bag_fees: {}
       # A window search never uses the return-by deadline, but a date this
       # far out keeps it from quietly filtering anything if it ever does.
       arrive_home_by: "2027-01-02 23:59"
