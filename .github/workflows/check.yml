@@ -29,8 +29,20 @@ on:
     # (No Friday slot: Jetstar Asia, the other weekly-sale carrier out of
     # Changi, shut down in July 2025.)
     - cron: "47 3-15/2 * * 2"
+    # Taipei, four times a day. Deliberately slower than the December watch:
+    # that one is hunting a sale inside a three-week booking window, this one
+    # is watching a six-week holiday still two months out, where nothing
+    # moves in two hours. It also costs more - about 60 searches a run
+    # against a dozen - so running it every slot would quadruple the day's
+    # requests to watch a fare that barely drifts.
+    - cron: "23 1,7,13,19 * * *"
   workflow_dispatch:
     inputs:
+      trip:
+        description: "Which trip to check"
+        type: choice
+        options: [december, taipei, both]
+        default: december
       summary:
         description: "Send the current cheapest fares even if nothing is new"
         type: boolean
@@ -69,6 +81,7 @@ jobs:
         run: python -m playwright install --with-deps chromium
 
       - name: Search for fares
+        if: ${{ github.event_name != 'workflow_dispatch' || inputs.trip != 'taipei' }}
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           # Optional - leave unset and the first run works the chat out from
@@ -85,6 +98,18 @@ jobs:
           [ -z "$ONLY" ] && ONLY="Beijing,Qingdao,Weihai"
           [ -n "$ONLY" ] && args+=(--only "$ONLY")
           python -m flightwatch "${args[@]}"
+
+      # Its own step rather than its own job: two jobs committing to main at
+      # once is a push race, and this way both trips' prices land in one
+      # commit. A failure here still lets the step below save whatever the
+      # December run recorded.
+      - name: Search for Taipei fares
+        if: ${{ (github.event_name == 'schedule' && github.event.schedule == '23 1,7,13,19 * * *') || (github.event_name == 'workflow_dispatch' && inputs.trip != 'december') }}
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          FLIGHTWATCH_PROXY: ${{ secrets.FLIGHTWATCH_PROXY }}
+        run: python -m flightwatch --trip taipei
 
       - name: Save price history
         if: always()

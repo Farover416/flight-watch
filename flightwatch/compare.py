@@ -23,10 +23,10 @@ def _d(date: str) -> datetime:
 
 
 def trip(frm: str, to: str, out: str, back: str | None = None,
-         locale: str = "en-SG", curr: str = "SGD") -> str:
+         locale: str = "en-SG", curr: str = "SGD", adults: int = 1) -> str:
     params = {
         "dcity": frm.lower(), "acity": to.lower(), "ddate": out,
-        "triptype": "rt" if back else "ow", "class": "y", "quantity": 1,
+        "triptype": "rt" if back else "ow", "class": "y", "quantity": adults,
         "locale": locale, "curr": curr,
     }
     if back:
@@ -34,28 +34,38 @@ def trip(frm: str, to: str, out: str, back: str | None = None,
     return "https://www.trip.com/flights/showfarefirst?" + urllib.parse.urlencode(params)
 
 
-def traveloka(frm: str, to: str, out: str, back: str | None = None) -> str:
+def traveloka(frm: str, to: str, out: str, back: str | None = None,
+              adults: int = 1) -> str:
     dates = f"{_d(out):%d-%m-%Y}." + (f"{_d(back):%d-%m-%Y}" if back else "NA")
-    params = {"ap": f"{frm}.{to}", "dt": dates, "ps": "1.0.0", "sc": "ECONOMY"}
+    # ps is adults.children.infants
+    params = {"ap": f"{frm}.{to}", "dt": dates, "ps": f"{adults}.0.0",
+              "sc": "ECONOMY"}
     return ("https://www.traveloka.com/en-sg/flight/fullsearch?"
             + urllib.parse.urlencode(params))
 
 
-def kiwi(frm: str, to: str, out: str, back: str | None = None) -> str:
+def kiwi(frm: str, to: str, out: str, back: str | None = None,
+         adults: int = 1) -> str:
     tail = f"/{back}" if back else ""
-    return f"https://www.kiwi.com/en/search/results/{frm}/{to}/{out}{tail}"
+    seats = f"?adults={adults}" if adults != 1 else ""
+    return f"https://www.kiwi.com/en/search/results/{frm}/{to}/{out}{tail}{seats}"
 
 
-def skyscanner(frm: str, to: str, out: str, back: str | None = None) -> str:
+def skyscanner(frm: str, to: str, out: str, back: str | None = None,
+               adults: int = 1) -> str:
     legs = f"{frm.lower()}/{to.lower()}/{_d(out):%y%m%d}"
     if back:
         legs += f"/{_d(back):%y%m%d}"
     return (f"https://www.skyscanner.com.sg/transport/flights/{legs}/"
-            "?adultsv2=1&cabinclass=economy")
+            f"?adultsv2={adults}&cabinclass=economy")
 
 
-def for_combo(combo) -> list[tuple[str, list[tuple[str, str]]]]:
+def for_combo(combo, adults: int = 1) -> list[tuple[str, list[tuple[str, str]]]]:
     """Comparison links for one trip, grouped for display.
+
+    ``adults`` has to be carried through: a link that quietly prices one seat
+    beside a total for two is worse than no link, because it looks like the
+    watcher found something cheaper than it did.
 
     A round-trip quote is one ticket, so it gets one set of round-trip links.
     A one-way pair is two tickets bought separately, so each leg gets its own
@@ -67,11 +77,12 @@ def for_combo(combo) -> list[tuple[str, list[tuple[str, str]]]]:
         return [(
             "also check",
             [
-                ("Trip", trip(frm, to, out, back)),
-                ("Trip CN", trip(frm, to, out, back, locale="zh-CN", curr="CNY")),
-                ("Traveloka", traveloka(frm, to, out, back)),
-                ("Kiwi", kiwi(frm, to, out, back)),
-                ("Skyscanner", skyscanner(frm, to, out, back)),
+                ("Trip", trip(frm, to, out, back, adults=adults)),
+                ("Trip CN", trip(frm, to, out, back, locale="zh-CN",
+                                 curr="CNY", adults=adults)),
+                ("Traveloka", traveloka(frm, to, out, back, adults=adults)),
+                ("Kiwi", kiwi(frm, to, out, back, adults=adults)),
+                ("Skyscanner", skyscanner(frm, to, out, back, adults=adults)),
             ],
         )]
 
@@ -81,10 +92,11 @@ def for_combo(combo) -> list[tuple[str, list[tuple[str, str]]]]:
         groups.append((
             f"also check {label}",
             [
-                ("Trip", trip(frm, to, date)),
-                ("Trip CN", trip(frm, to, date, locale="zh-CN", curr="CNY")),
-                ("Kiwi", kiwi(frm, to, date)),
-                ("Skyscanner", skyscanner(frm, to, date)),
+                ("Trip", trip(frm, to, date, adults=adults)),
+                ("Trip CN", trip(frm, to, date, locale="zh-CN", curr="CNY",
+                                 adults=adults)),
+                ("Kiwi", kiwi(frm, to, date, adults=adults)),
+                ("Skyscanner", skyscanner(frm, to, date, adults=adults)),
             ],
         ))
     return groups

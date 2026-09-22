@@ -65,6 +65,44 @@ arrive_home_by: "2026-12-30 01:00"
 # filtered out before it reaches your phone.
 min_nights: 7
 
+# --- other trips ------------------------------------------------------------
+# Everything above describes the December trip, which runs by default and is
+# untouched by anything here. A trip listed below is the same watcher with a
+# few settings changed and its own folder under data/ to keep its prices in -
+# so its history, its alerts and its chart are its own, while every search,
+# price and link is built by exactly the same code.
+#
+# Run one with: python -m flightwatch --trip taipei
+trips:
+  taipei:
+    name: Singapore ⇄ Taipei
+    data_subdir: taipei        # prices land in data/taipei/
+    # No fixed days: anything inside the school holiday will do, as long as
+    # the stay is long enough to be worth the flight.
+    window:
+      from: "2026-11-21"       # Term 4 ends Fri 20 Nov
+      to: "2026-12-31"
+      min_nights: 14
+      max_nights: 30
+      # 323 date pairs is far too many to price every run, so the grid is
+      # walked coarsely first and then in detail around whatever looked
+      # cheapest. Raise scan_step or trim scan_durations to make a run
+      # lighter; drop scan_step to 1 to price every pair.
+      scan_step: 3
+      scan_durations: [14, 18, 22, 26, 30]
+      zoom_radius: 2
+    settings:
+      adults: 2                # one of them is 14, which books as an adult
+      max_total: null          # no budget to hit - report the cheapest and
+                               # say when it is a new low
+      # A window search never uses the return-by deadline, but a date this
+      # far out keeps it from quietly filtering anything if it ever does.
+      arrive_home_by: "2027-01-02 23:59"
+      destinations:
+        Taiwan:
+          priority: [TPE]
+          extended: []
+
 # --- where ------------------------------------------------------------------
 # City codes cover every airport in that city (TYO = Narita + Haneda,
 # SEL = Incheon + Gimpo, SHA = Pudong + Hongqiao, BJS = Capital + Daxing,

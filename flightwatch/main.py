@@ -234,7 +234,10 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
     # Every run reports what it actually found. Suppressing fares because an
     # earlier run already mentioned them hid the cheapest ones and surfaced
     # worse alternatives, which is the opposite of useful.
-    under_budget = [c for c in result.combos if c.price <= cfg.max_total]
+    # A trip with no budget has nothing to fail: every trip found is worth
+    # reporting, and "new low" is the only signal that means anything.
+    under_budget = (list(result.combos) if cfg.max_total is None
+                    else [c for c in result.combos if c.price <= cfg.max_total])
     previous_best = store.best_total()
     if result.combos:
         store.update_best(result.combos[0])
@@ -263,9 +266,11 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         store.save()
         return 0
 
-    where = focus or "Singapore ⇄ China / Korea / Japan"
+    where = focus or cfg.trip_name
     items = present.prepare(cfg, under_budget or result.combos)
-    if under_budget:
+    if cfg.max_total is None:
+        heading = f"Cheapest {len(items)} right now - {where}"
+    elif under_budget:
         heading = (
             f"🔥 {len(under_budget)} fare(s) under S${cfg.max_total}, "
             f"best {len(items)} - {where}"
@@ -303,6 +308,9 @@ def main(argv: list[str] | None = None) -> int:
                         help="check just these places - area, city or code, "
                              "e.g. Yunnan or Beijing or CTU,CKG")
     parser.add_argument("--no-round-trip", action="store_true")
+    parser.add_argument("--trip", default="",
+                        help="watch one of the other trips in config.yaml "
+                             "instead of the December one, e.g. taipei")
     parser.add_argument("--whoami", action="store_true",
                         help="print your Telegram chat id and exit")
     args = parser.parse_args(argv)
@@ -313,11 +321,22 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     cfg = config.load(args.config)
+    # The chat is the same chat whichever trip is running, so this one stays
+    # in the top-level data directory rather than following the trip.
     telegram = Telegram(cache_path=cfg.data_dir / "telegram.json")
 
     if args.whoami:
         print(telegram.whoami())
         return 0
+
+    if args.trip:
+        try:
+            cfg = cfg.for_trip(args.trip)
+        except KeyError as exc:
+            log.error("%s", exc.args[0] if exc.args else exc)
+            return 2
+        log.info("watching %s - %d adult(s), prices filed under %s",
+                 cfg.trip_name, cfg.adults, cfg.data_dir.name)
 
     store = Store(cfg.data_dir, cfg)
     wanted = [t for t in args.only.split(",") if t.strip()]
@@ -337,18 +356,25 @@ def main(argv: list[str] | None = None) -> int:
         cfg.max_per_city_pair = cfg.report_top
         log.info("checking %s only", names)
 
-    destinations, next_cursor = cfg.destinations_for_run(store.rotation_cursor())
-    if not only:
-        log.info(
-            "this run: %d cities (%d priority + %d from the rotation of %d)",
-            len(destinations), len(cfg.priority_destinations),
-            len(destinations) - len(cfg.priority_destinations),
-            len(cfg.extended_destinations),
-        )
-        store.set_rotation_cursor(next_cursor)
+    if cfg.trip is not None and cfg.trip.window is not None:
+        # A trip fixed to a window has no list of days to iterate; it has a
+        # grid of date pairs, walked coarse-then-fine. See window.py.
+        from . import window as window_search
+        result = window_search.sweep(cfg)
+    else:
+        destinations, next_cursor = cfg.destinations_for_run(
+            store.rotation_cursor())
+        if not only:
+            log.info(
+                "this run: %d cities (%d priority + %d from the rotation of %d)",
+                len(destinations), len(cfg.priority_destinations),
+                len(destinations) - len(cfg.priority_destinations),
+                len(cfg.extended_destinations),
+            )
+            store.set_rotation_cursor(next_cursor)
 
-    result = sweep(cfg, only=only or None, destinations=destinations,
-                   round_trip=not args.no_round_trip)
+        result = sweep(cfg, only=only or None, destinations=destinations,
+                       round_trip=not args.no_round_trip)
     return report(cfg, result, store, telegram,
                   dry_run=args.dry_run, focus=focus)
 

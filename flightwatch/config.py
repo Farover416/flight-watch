@@ -19,6 +19,51 @@ class OutboundDay:
 
 
 @dataclass
+class Window:
+    """Dates to search across, rather than a handful of named days.
+
+    The December trip knows exactly which days it can fly: two out, three
+    back, six pairs. A trip that is only pinned to a school holiday knows no
+    such thing - any departure and any return inside the window will do, as
+    long as the stay is long enough to be worth the flight. That is 323 pairs
+    for a six-week window at two to four weeks away, far too many to price
+    every run, so the grid is walked in two passes. See ``pairs`` and
+    ``scan`` below for what each pass covers.
+    """
+
+    start: str
+    end: str
+    min_nights: int = 14
+    max_nights: int = 30
+    # The coarse pass: every Nth departure date, at a few sample lengths.
+    scan_step: int = 3
+    scan_durations: list[int] = field(default_factory=lambda: [14, 18, 22, 26, 30])
+    # The fine pass, around whatever the coarse pass liked best. More than one
+    # centre because a six-week window usually has two cheap patches - the
+    # start of the holiday and the run-up to Christmas - and refining only the
+    # better of them is how the other one stays permanently unexamined.
+    zoom_radius: int = 2
+    zoom_around: int = 2
+
+
+@dataclass
+class Trip:
+    """One thing being watched: where, when, for whom, and where it is filed.
+
+    A trip is not a second program. It is this same watcher with some
+    settings changed and its own directory to keep what it has learned in,
+    which is why nothing downstream of here - no search, no price, no link,
+    no signature - needs any notion of trips at all.
+    """
+
+    key: str
+    name: str
+    data_subdir: str = ""
+    window: Window | None = None
+    settings: dict = field(default_factory=dict)
+
+
+@dataclass
 class Layover:
     """When a connection is worth having. See config.yaml for the reasoning."""
 
@@ -44,7 +89,10 @@ class Config:
     max_stops: int | None = 1
     exclude_basic_economy: bool = False
 
-    max_total: int = 900
+    # None means no ceiling: report the cheapest there is and say when it is a
+    # new low. A trip months away with no fixed budget has nothing to compare
+    # a number against, so inventing one would only silence the alerts.
+    max_total: int | None = 900
     realert_drop: int = 20
     new_best_drop: int = 40
 
@@ -62,6 +110,12 @@ class Config:
     cities: dict[str, str] = field(default_factory=dict)
     areas: dict[str, list[str]] = field(default_factory=dict)
     layover: Layover = field(default_factory=Layover)
+
+    # Everything being watched, and which of them this config currently is.
+    # ``trip`` is None for the original December watch, which is the default
+    # and keeps writing exactly where it always has.
+    trips: dict[str, Trip] = field(default_factory=dict)
+    trip: Trip | None = None
 
     keep_per_search: int = 5
     report_top: int = 12
@@ -169,6 +223,48 @@ class Config:
             return True
         return bool(self.rail_groups_of(landed) & self.rail_groups_of(leaving_from))
 
+    def for_trip(self, key: str) -> "Config":
+        """This same config, as the named trip sees it.
+
+        The overrides are applied to a copy and the data directory moves to
+        the trip's own subdirectory. Keeping the trips in separate
+        directories rather than tagging their rows is deliberate: the
+        signature every price is filed under has no room for a trip, and
+        widening it would re-key every alert and break every line already
+        drawn on the chart. Separate directories cost nothing and leave the
+        recorded past exactly as it is.
+        """
+        import dataclasses
+
+        trip = self.trips.get(key)
+        if trip is None:
+            known = ", ".join(sorted(self.trips)) or "(none configured)"
+            raise KeyError(f"no trip called {key!r} - I know: {known}")
+
+        settings = dict(trip.settings)
+        if trip.window is not None:
+            # One source of truth for how long the stay may be, so the grid
+            # and the pairing rules cannot drift apart.
+            settings.setdefault("min_nights", trip.window.min_nights)
+        unknown = [k for k in settings if not hasattr(self, k)]
+        if unknown:
+            raise KeyError(f"trip {key!r} sets unknown option(s): "
+                           f"{', '.join(sorted(unknown))}")
+        if "arrive_home_by" in settings:
+            settings["arrive_home_by"] = _as_datetime(settings["arrive_home_by"])
+
+        changed = dataclasses.replace(self, **settings)
+        changed.trip = trip
+        if trip.data_subdir:
+            changed.data_dir = self.data_dir / trip.data_subdir
+            changed.data_dir.mkdir(parents=True, exist_ok=True)
+        return changed
+
+    @property
+    def trip_name(self) -> str:
+        """What to call this watch in a message."""
+        return self.trip.name if self.trip else "Singapore ⇄ China / Korea / Japan"
+
     def destinations_for_run(self, cursor: int) -> tuple[list[str], int]:
         """Priority cities plus the next slice of the extended rotation."""
         extended = self.extended_destinations
@@ -179,6 +275,13 @@ class Config:
         start = cursor % len(extended)
         slice_ = [extended[(start + i) % len(extended)] for i in range(take)]
         return self.priority_destinations + slice_, (start + take) % len(extended)
+
+
+def _as_datetime(value) -> datetime:
+    """A deadline however YAML handed it over - already parsed, or text."""
+    if isinstance(value, datetime):
+        return value
+    return datetime.strptime(str(value), "%Y-%m-%d %H:%M")
 
 
 def load(path: str | Path | None = None) -> Config:
@@ -213,11 +316,31 @@ def load(path: str | Path | None = None) -> Config:
     rules = raw.get("layover") or {}
     cfg.layover = Layover(**{k: v for k, v in rules.items() if hasattr(Layover, k)})
 
+    # max_total may be set to nothing on purpose, which the loop above cannot
+    # express: it skips None so that an absent key keeps the default.
+    if "max_total" in raw:
+        cfg.max_total = raw["max_total"]
+
+    cfg.trips = {}
+    for key, spec in (raw.get("trips") or {}).items():
+        spec = spec or {}
+        window = spec.get("window")
+        cfg.trips[str(key)] = Trip(
+            key=str(key),
+            name=str(spec.get("name") or key),
+            data_subdir=str(spec.get("data_subdir") or ""),
+            window=Window(
+                start=str(window["from"]),
+                end=str(window["to"]),
+                **{k: v for k, v in window.items()
+                   if k not in ("from", "to") and hasattr(Window, k)},
+            ) if window else None,
+            settings=dict(spec.get("settings") or {}),
+        )
+
     deadline = raw.get("arrive_home_by")
-    if isinstance(deadline, datetime):
-        cfg.arrive_home_by = deadline
-    elif deadline:
-        cfg.arrive_home_by = datetime.strptime(str(deadline), "%Y-%m-%d %H:%M")
+    if deadline:
+        cfg.arrive_home_by = _as_datetime(deadline)
 
     # A proxy is only needed if the scraper starts getting blocked.
     cfg.proxy = os.environ.get("FLIGHTWATCH_PROXY") or None

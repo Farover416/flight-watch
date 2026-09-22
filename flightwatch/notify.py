@@ -314,7 +314,7 @@ def format_deals(cfg, items, heading: str) -> str:
             also = "; ".join(shown) + (f"; +{more} more" if more > 0 else "")
             lines.append(f"  <i>also: {esc(also)}</i>")
 
-        for group_name, group_links in compare.for_combo(combo):
+        for group_name, group_links in compare.for_combo(combo, cfg.adults):
             joined = " . ".join(
                 f'<a href="{esc(url)}">{esc(name)}</a>' for name, url in group_links
             )
@@ -326,10 +326,15 @@ def format_deals(cfg, items, heading: str) -> str:
             "<i>“one-way pair” means two separate tickets — cheapest on low-cost "
             "carriers, but a delay on one leg is not protected by the other.</i>"
         )
+    # Whose money, and how many seats. A total for two beside a budget for
+    # one reads as a bargain, so both are said out loud.
+    budget = ("No budget set - watching for new lows." if cfg.max_total is None
+              else f"Budget S${cfg.max_total}.")
+    seats = "" if cfg.adults == 1 else f" Prices are for {cfg.adults} adults."
     lines.append(
         f"<i>Totals include a checked bag: free on carriers that bundle one, "
         f"otherwise our own estimate (Google will not price it). "
-        f"Budget S${cfg.max_total}. "
+        f"{budget}{seats} "
         "This is the airline's own fare. Google lists agency prices under "
         '"Booking options" once you open a flight, and those have come in '
         "several percent lower - so treat every number here as a ceiling and "

@@ -71,6 +71,9 @@ button{font:inherit;cursor:pointer}
 .btn[disabled]{opacity:.5;cursor:default}
 .btn-ghost{background:transparent;color:var(--ink-2);border:1px solid var(--ring);
   border-radius:9px;padding:8px 14px;min-height:38px}
+/* A class that sets display beats the hidden attribute's UA rule, so
+   anything hidden here would quietly keep showing. */
+[hidden]{display:none !important}
 .chips{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
 .chip{
   border:1px solid var(--ring); background:transparent; color:var(--ink-2);
@@ -151,7 +154,8 @@ td .links a{padding:5px 9px;min-height:30px;line-height:18px;font-size:12px;font
 
 <header>
   <h1>Flight Watch</h1>
-  <div class="sub">Singapore → North Asia, 18/19 Dec out, 27–29 Dec back. Under S$900 with a checked bag.</div>
+  <div class="chips" id="trips" style="margin:10px 0 8px"></div>
+  <div class="sub" id="trip-sub"></div>
 </header>
 
 <!-- ── run ─────────────────────────────────────────────────────────── -->
@@ -223,6 +227,30 @@ const BRANCH = "main";
 const TOKEN_KEY = "fw.token";
 const FIRST_MONTH = "2026-09";
 const CORE = ["Beijing", "Qingdao", "Weihai"];
+
+/* ── which trip is on screen ─────────────────────────────────────────
+   Each trip keeps its prices in its own folder, so switching trips is
+   only a matter of reading from a different one. They are kept apart
+   rather than tagged because the signature every price is filed under
+   has no room for a trip - see config.py's for_trip.
+
+   Totals are NOT comparable between trips: Taipei is priced for two
+   people. The heading says so on every switch, because a chart cannot. */
+const TRIPS = [
+  { key: "december", label: "North Asia", dir: "data", adults: 1,
+    blurb: "Singapore → North Asia, 18/19 Dec out, 27–29 Dec back. " +
+           "Under S$900 with a checked bag." },
+  { key: "taipei", label: "Taipei", dir: "data/taipei", adults: 2,
+    blurb: "Singapore ⇄ Taipei, anywhere in 21 Nov – 31 Dec, 2–4 weeks away. " +
+           "Prices are for 2 adults." },
+];
+const tripFor = (key) => TRIPS.find((t) => t.key === key) || TRIPS[0];
+let TRIP = tripFor((location.hash || "").replace("#", ""));
+// The back button changes the hash without reloading, which would leave one
+// trip's prices on screen under the other trip's name. Nothing on this page
+// is worth that, so any hash change starts again.
+addEventListener("hashchange", () => location.reload());
+const dataUrl = (path) => `${TRIP.dir}/${path}`;
 const SERIES_CAP = 6;    // coloured lines: the palette's safe ceiling
 const CONTEXT_CAP = 18;  // grey rivals behind them
 const LEGEND_CAP = 8;    // unselected trips offered in the legend
@@ -246,7 +274,7 @@ const CMP = {
   Trip: (frm, to, out, back) => {
     const p = new URLSearchParams({
       dcity: frm.toLowerCase(), acity: to.toLowerCase(), ddate: out,
-      triptype: back ? "rt" : "ow", class: "y", quantity: "1",
+      triptype: back ? "rt" : "ow", class: "y", quantity: String(TRIP.adults),
       locale: "en-SG", curr: "SGD",
     });
     if (back) p.set("rdate", back);
@@ -256,12 +284,12 @@ const CMP = {
     "https://www.traveloka.com/en-sg/flight/fullsearch?" + new URLSearchParams({
       ap: `${frm}.${to}`,
       dt: `${dmy(out)}.${back ? dmy(back) : "NA"}`,
-      ps: "1.0.0", sc: "ECONOMY",
+      ps: `${TRIP.adults}.0.0`, sc: "ECONOMY",
     }),
   Skyscanner: (frm, to, out, back) =>
     `https://www.skyscanner.com.sg/transport/flights/${frm.toLowerCase()}/` +
     `${to.toLowerCase()}/${yymmdd(out)}${back ? "/" + yymmdd(back) : ""}/` +
-    "?adultsv2=1&cabinclass=economy",
+    `?adultsv2=${TRIP.adults}&cabinclass=economy`,
 };
 
 /* Grouped exactly as compare.py groups them: a round-trip quote is one
@@ -356,7 +384,7 @@ function monthsToTry() {
 async function loadSeries(months) {
   const files = await Promise.all((months || monthsToTry()).map(async (m) => {
     try {
-      const res = await fetch(`data/series/${m}.jsonl`, { cache: "no-store" });
+      const res = await fetch(dataUrl(`series/${m}.jsonl`), { cache: "no-store" });
       if (!res.ok) return "";
       return await res.text();
     } catch { return ""; }
@@ -1090,6 +1118,32 @@ function draw() {
 
 const picked = new Set(CORE);
 
+function renderTrips() {
+  const box = $("trips");
+  box.textContent = "";
+  for (const t of TRIPS) {
+    const b = document.createElement("button");
+    b.className = "chip";
+    b.type = "button";
+    b.textContent = t.label;
+    b.setAttribute("aria-pressed", t.key === TRIP.key ? "true" : "false");
+    b.onclick = () => {
+      if (t.key === TRIP.key) return;
+      // A reload, not a redraw: every list here is derived from the loaded
+      // runs, and resetting them one by one is how a stale filter survives
+      // the switch and quietly mislabels another trip's prices.
+      location.hash = t.key;
+      location.reload();
+    };
+    box.appendChild(b);
+  }
+  $("trip-sub").textContent = TRIP.blurb;
+  // Taipei is one route on a date window - there is nothing to pick.
+  const pickable = TRIP.key === "december";
+  $("pick").hidden = !pickable;
+  $("more-wrap").hidden = !pickable;
+}
+
 function renderPicker() {
   const box = $("pick");
   box.textContent = "";
@@ -1130,7 +1184,9 @@ function renderRunPanel() {
 function say(html) { $("run-status").innerHTML = html; }
 
 async function dispatch() {
-  if (!picked.size) return say("Pick at least one city first.");
+  if (TRIP.key === "december" && !picked.size) {
+    return say("Pick at least one city first.");
+  }
   $("run").disabled = true;
   say("Starting…");
   try {
@@ -1144,11 +1200,13 @@ async function dispatch() {
         },
         body: JSON.stringify({
           ref: BRANCH,
-          inputs: { only: [...picked].join(","), summary: "true" },
+          inputs: { trip: TRIP.key, only: [...picked].join(","),
+                    summary: "true" },
         }),
       });
     if (res.status === 204) {
-      say(`Started for <b>${esc([...picked].join(", "))}</b>. Watching…`);
+      const what = TRIP.key === "december" ? [...picked].join(", ") : TRIP.label;
+      say(`Started for <b>${esc(what)}</b>. Watching…`);
       setTimeout(poll, 4000);
     } else if (res.status === 401 || res.status === 403) {
       say("GitHub rejected that token. It needs Actions: read and write on this repository.");
@@ -1242,6 +1300,7 @@ addEventListener("resize", () => {
   resizeTimer = setTimeout(() => { hideTip(); renderChart(); }, 150);
 });
 
+renderTrips();
 renderPicker();
 fillMoreSelect();
 renderRunPanel();
@@ -1251,7 +1310,7 @@ renderRunPanel();
    button rather than making a phone download the lot to see this week. */
 async function boot() {
   try {
-    const res = await fetch("data/latest.json", { cache: "no-store" });
+    const res = await fetch(dataUrl("latest.json"), { cache: "no-store" });
     if (res.ok) LATEST = await res.json();
   } catch { /* links degrade to the comparison sites; nothing else cares */ }
 
