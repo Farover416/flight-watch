@@ -12,6 +12,12 @@ page, switch to Google's own "Cheapest" view, and read what a person reads.
 Ten page loads per sweep rather than two hundred - enough to make the numbers
 you act on correct, small enough not to look like scraping.
 
+Reading it means waiting for it. The first fares drawn are the airline's own,
+and the cheaper agency ones replace them seconds later while the page says
+"Checking online travel agencies and other providers..." - so a read taken the
+moment fares appear is the dear number, which is the very mistake opening a
+browser was meant to avoid. The page is read once its prices stop falling.
+
 Everything here is optional by design. No browser, a consent wall, a bot check:
 verification is skipped and the sweep reports its parsed numbers with that
 fact attached. It never silently substitutes or invents a price.
@@ -21,6 +27,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from dataclasses import dataclass
 
 log = logging.getLogger("flightwatch.verify")
@@ -34,21 +41,79 @@ _NOISE = re.compile(
 _BLOCKED = ("unusual traffic", "/sorry/", "captcha", "before you continue",
             "consent.google")
 
-# Reading the rendered list, after Google's own Cheapest tab is selected.
-_ROWS_JS = """() => {
-  const rows = Array.from(document.querySelectorAll('li'))
+# One definition of what counts as a fare row, shared by the code that reads
+# the page and the code that decides the page has stopped changing. Were those
+# two to disagree, "settled" would be a statement about rows nobody reads.
+_ROW_TEXTS_JS = """
+  const rowTexts = () => Array.from(document.querySelectorAll('li'))
     .map(li => (li.innerText || '').replace(/\\s+/g, ' ').trim())
     .filter(t => /SGD\\s?\\d/.test(t)
               && /\\d{1,2}:\\d{2}\\s?(AM|PM)/.test(t)
               && t.length < 400);
-  return Array.from(new Set(rows));
+  const priceIn = (t) => {
+    const m = t.match(/SGD\\s?([\\d,]+)/);
+    return m ? parseInt(m[1].replace(/,/g, ''), 10) : null;
+  };
+"""
+
+# Reading the rendered list, after Google's own Cheapest tab is selected.
+_ROWS_JS = "() => {" + _ROW_TEXTS_JS + """
+  return Array.from(new Set(rowTexts()));
 }"""
 
-# Waiting until the fares exist beats sleeping for a guessed 8.5 seconds:
-# a fast response is read in two, a slow one is still read correctly.
-_HAS_ROWS_JS = """() => Array.from(document.querySelectorAll('li'))
-  .some(li => /SGD\\s?\\d/.test(li.innerText || '')
-           && /\\d{1,2}:\\d{2}\\s?(AM|PM)/.test(li.innerText || ''))"""
+# One look at the page: how many fares it is showing, the cheapest of them,
+# whether it says it is still working, and what it claims its cheapest is.
+_PROBE_JS = "() => {" + _ROW_TEXTS_JS + """
+  const rows = Array.from(new Set(rowTexts()));
+  const prices = rows.map(priceIn).filter(n => n !== null);
+
+  const shown = (el) => {
+    if (el.checkVisibility && !el.checkVisibility()) return false;
+    const box = el.getBoundingClientRect();
+    return box.width > 0 && box.height > 0;
+  };
+  const busy = Array.from(document.querySelectorAll('[role="progressbar"]'))
+    .some(shown);
+
+  // Google prints the cheapest figure it already knows above a list that has
+  // not caught up: the tab reads "Cheapest from SGD 605" while the rows still
+  // start at 718. That number is the page telling us our read is unfinished.
+  // It sits inside the tab on a phone and beside it on a desktop, so look at
+  // the tab and then at the strip around it, keeping the match tight enough
+  // to not pick up the Best tab's price instead.
+  let quoted = null;
+  const tab = Array.from(document.querySelectorAll('[role="tab"]'))
+    .find(t => /cheapest/i.test(t.textContent || ''));
+  if (tab) {
+    const nearby = [tab.textContent || '',
+                    (tab.parentElement && tab.parentElement.textContent) || ''];
+    for (const text of nearby) {
+      const m = text.match(/cheapest[\\s\\S]{0,40}?SGD\\s?([\\d,]+)/i);
+      if (m) { quoted = parseInt(m[1].replace(/,/g, ''), 10); break; }
+    }
+  }
+
+  return {rows: rows.length,
+          min: prices.length ? Math.min.apply(null, prices) : null,
+          busy: busy,
+          quoted: quoted};
+}"""
+
+# How long a page gets to stop changing. The sweep is the slow part of the
+# first load; switching tabs re-renders the list and can fetch again.
+_SETTLE_MS = 30_000
+_RESORT_MS = 20_000
+_RETURNS_MS = 25_000
+# Nothing changing for this long is what "the sweep has finished" looks like
+# from outside. It is also the shortest a read can take, which is the point:
+# it is the window in which a falling price would have shown itself.
+_QUIET_MS = 2_500
+# The same window for a page that never said it was working and never quoted
+# its own cheapest fare - if Google restyles either of those, stability is the
+# only thing left, and a short quiet window would mistake the pause between
+# the airline fares and the agency ones for the end of the list. Being slow
+# when the page stops explaining itself is the right way to be wrong.
+_BLIND_QUIET_MS = 8_000
 
 # Google prices a round trip as one ticket and its result list only details
 # the outbound - the return is chosen on the next screen. So open the
@@ -261,6 +326,69 @@ def _settle(page, ready_js, timeout_ms):
         return False
 
 
+def _settle_prices(page, budget_ms, quiet_ms=_QUIET_MS, poll_ms=400):
+    """Wait until the cheapest price on the page stops falling.
+
+    The old condition here was "a fare row exists", which the page satisfies
+    with the airline's own fares within a second or two - and then spends the
+    next five to ten seconds replacing them with cheaper agency ones. Reading
+    at the first condition recorded the dearer list every time.
+
+    So watch the list instead of the clock: poll what is on the page, and
+    accept it only once the row count and the cheapest price have held still
+    for a quiet stretch, nothing says it is still working, and the cheapest
+    row is no dearer than the price the page itself advertises.
+
+    Returns (settled, snapshot) - the snapshot is the last look either way, so
+    a caller can say what it saw rather than only that it gave up.
+    """
+    deadline = time.monotonic() + budget_ms / 1000
+    snapshot = {"rows": 0, "min": None, "busy": False, "quoted": None}
+    seen = None
+    changed_at = time.monotonic()
+    told = False           # the page has said something about its own progress
+    while True:
+        try:
+            snapshot = page.evaluate(_PROBE_JS)
+        except Exception:
+            return False, snapshot
+        now = time.monotonic()
+        told = told or snapshot["busy"] or snapshot["quoted"] is not None
+        quiet = (quiet_ms if told else _BLIND_QUIET_MS) / 1000
+        mark = (snapshot["rows"], snapshot["min"])
+        if mark != seen:
+            seen, changed_at = mark, now
+        elif (snapshot["min"] is not None
+                and not snapshot["busy"]
+                and now - changed_at >= quiet
+                and (snapshot["quoted"] is None
+                     or snapshot["min"] <= snapshot["quoted"])):
+            return True, snapshot
+        if now >= deadline:
+            return False, snapshot
+        page.wait_for_timeout(poll_ms)
+
+
+def _trustworthy(tag, settled, snapshot) -> bool:
+    """Whether a list that ran out of time is still worth recording.
+
+    Out of time with a price at or below what the page advertises means the
+    read is consistent with the page's own headline - slow, not wrong. Out of
+    time with every row dearer than that headline means the cheaper fares
+    never arrived, and recording the dear one is the mistake this exists to
+    prevent, so nothing is recorded and the trip keeps its unverified price.
+    """
+    if settled:
+        return True
+    quoted, cheapest = snapshot.get("quoted"), snapshot.get("min")
+    if quoted is not None and cheapest is not None and cheapest > quoted:
+        log.warning("%-28s page advertises S$%d, list stopped at S$%d "
+                    "- not recording", tag, quoted, cheapest)
+        return False
+    log.info("%-28s list never went quiet; reading it at S$%s", tag, cheapest)
+    return True
+
+
 def _read(page, label, part_label, url, rows_each, timeout_ms,
           follow_return=False):
     """What one search page prices.
@@ -273,15 +401,19 @@ def _read(page, label, part_label, url, rows_each, timeout_ms,
     tag = f"{label} {part_label}".strip() or label
     try:
         page.goto(url, wait_until="domcontentloaded", timeout=timeout_ms)
-        if not _settle(page, _HAS_ROWS_JS, 25_000):
+        settled, snapshot = _settle_prices(page, _SETTLE_MS)
+        if snapshot["min"] is None:
             body = (page.inner_text("body") or "").lower()[:4000]
             why = ("not a results page" if any(m in body for m in _BLOCKED)
                    else "rendered no fares")
             log.warning("%-28s %s - skipped", tag, why)
             return [], []
+        # Switching tabs re-renders the list, so whatever settled a moment ago
+        # has to settle again; an already-selected tab changes nothing.
         if page.evaluate(_CHEAPEST_JS) == "clicked":
-            page.wait_for_timeout(2500)
-            _settle(page, _HAS_ROWS_JS, 15_000)
+            settled, snapshot = _settle_prices(page, _RESORT_MS)
+        if not _trustworthy(tag, settled, snapshot):
+            return [], []
 
         fares = _fares_from(page.evaluate(_ROWS_JS), rows_each)
         if not fares:
@@ -294,10 +426,16 @@ def _read(page, label, part_label, url, rows_each, timeout_ms,
         if opened != "opened":
             log.info("%-28s could not open the return list (%s)", tag, opened)
             return fares, []
-        if not _settle(page, _RETURNS_READY_JS, 25_000):
+        if not _settle(page, _RETURNS_READY_JS, _RETURNS_MS):
             log.info("%-28s return list did not appear", tag)
             return fares, []
-        _settle(page, _HAS_ROWS_JS, 10_000)
+        # The second screen sweeps the agencies exactly as the first one does,
+        # so the first returns drawn are the dear ones just the same.
+        settled, snapshot = _settle_prices(page, _RETURNS_MS)
+        if snapshot["min"] is None or not _trustworthy(f"{tag} return",
+                                                       settled, snapshot):
+            log.info("%-28s return list was unreadable", tag)
+            return fares, []
         returns = _fares_from(page.evaluate(_ROWS_JS), rows_each)
         if not returns:
             log.info("%-28s return list was unreadable", tag)
