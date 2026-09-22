@@ -147,7 +147,15 @@ class Combo:
 
     @property
     def is_open_jaw(self) -> bool:
-        return self.back_from != self.out.to_airport
+        """Landing in one city and flying home from another.
+
+        Compared by city, not by airport. Beijing has two - Capital and
+        Daxing - and arriving at one while leaving from the other was being
+        reported as an open jaw. It is not: it is the same city, and calling
+        it an open jaw padded the list with trips that go nowhere new and
+        pushed the real Beijing-to-Qingdao ones further down it.
+        """
+        return self.back_city != self.out.search_to
 
     def signature(self) -> str:
         return (

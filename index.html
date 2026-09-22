@@ -201,6 +201,7 @@ td .links a{padding:5px 9px;min-height:30px;line-height:18px;font-size:12px;font
   <div class="chips">
     <button class="chip" id="t-rules" aria-pressed="true">Within my layover rules</button>
     <button class="chip" id="t-any" aria-pressed="true">Any transit time</button>
+    <button class="chip" id="t-jaw" aria-pressed="false">Open-jaw only</button>
     <button class="chip" id="t-table" aria-pressed="false">Table</button>
   </div>
   <div id="plot"></div>
@@ -299,6 +300,26 @@ function linksHtml(groups, compact) {
           class="${isG ? "gf" : ""}">${esc(name)}</a>`).join("")}</div>`).join("");
 }
 
+/* Airports that are really the same place. Beijing has Capital and Daxing,
+   Tokyo has Narita and Haneda; arriving at one and leaving from the other is
+   not an open jaw, and counting it as one buried the genuine
+   Beijing-to-Qingdao trips under a pile of Beijing-to-Beijing. */
+const METRO = {
+  PEK: "BJS", PKX: "BJS", BJS: "BJS",
+  SHA: "SHA", PVG: "SHA",
+  NRT: "TYO", HND: "TYO", TYO: "TYO",
+  KIX: "OSA", ITM: "OSA", OSA: "OSA",
+  ICN: "SEL", GMP: "SEL", SEL: "SEL",
+  BKK: "BKK", DMK: "BKK",
+  CTU: "CTU", TFU: "CTU",
+};
+const metro = (code) => METRO[code] || code;
+const cityOf = (code) => CITIES[metro(code)] || CITIES[code] || code;
+const isOpenJaw = (sig) => {
+  const p = String(sig).split("/");
+  return metro(p[0]) !== metro(p[1]);
+};
+
 const SWATCH = ["--s1","--s2","--s3","--s4","--s5","--s6"];
 const $ = (id) => document.getElementById(id);
 const city = (code) => CITIES[code] || code;
@@ -312,7 +333,7 @@ let loadedMonths = [];
 let detailKey = null;
 let selected = new Set();
 let cityFilter = new Set();
-let show = { rules: true, any: true };
+let show = { rules: true, any: true, jawOnly: false };
 
 function monthsToTry() {
   const out = [];
@@ -367,9 +388,9 @@ const DMY = (iso) => {
 
 function labelFor(sig, ok) {
   const p = parseSig(sig);
-  const where = p.to === p.from
-    ? city(p.to)
-    : `${city(p.to)} in / ${city(p.from)} out`;
+  const where = metro(p.to) === metro(p.from)
+    ? cityOf(p.to)
+    : `${cityOf(p.to)} in / ${cityOf(p.from)} out`;
   // Same city, same dates, one ticket or two - genuinely different trips at
   // different prices. Leaving the ticket count out put two identical-looking
   // rows in the legend against different lines.
@@ -392,7 +413,8 @@ function buildSeries(runs) {
         const p = parseSig(sig);
         map.set(key, {
           key, sig, ok: !!ok, label: labelFor(sig, ok),
-          city: city(p.to), points: new Map(),
+          city: cityOf(p.to),
+          openJaw: isOpenJaw(sig), points: new Map(),
         });
       }
       map.get(key).points.set(i, row);
@@ -429,6 +451,7 @@ function freshFirst(list) {
 function visibleSeries() {
   return SERIES
     .filter((s) => (s.ok ? show.rules : show.any))
+    .filter((s) => !show.jawOnly || s.openJaw)
     .filter((s) => !cityFilter.size || cityFilter.has(s.city))
     .sort((a, b) => lastPrice(a) - lastPrice(b));
 }
@@ -502,7 +525,19 @@ function renderChart() {
 
   // Default selection: the cheapest few, so the chart opens readable.
   if (!selected.size) {
-    freshFirst(vis).slice(0, SERIES_CAP).forEach((s) => selected.add(s.key));
+    const pool = freshFirst(vis);
+    pool.slice(0, SERIES_CAP).forEach((s) => selected.add(s.key));
+    // Flying home from the other city always costs more here, so an open jaw
+    // never reaches the top six on its own - and being absent from the chart
+    // is indistinguishable from not being searched. Keep the cheapest one on
+    // screen so the gap is a number you can see rather than a doubt.
+    if (!pool.slice(0, SERIES_CAP).some((s) => s.openJaw)) {
+      const jaw = pool.find((s) => s.openJaw);
+      if (jaw) {
+        selected.delete([...selected][selected.size - 1]);
+        selected.add(jaw.key);
+      }
+    }
   }
   const drawn = vis.filter((s) => selected.has(s.key)).slice(0, SERIES_CAP);
   const context = vis.filter((s) => !selected.has(s.key));
@@ -1199,6 +1234,7 @@ $("t-table").onclick = () => {
 };
 toggle("t-rules", "rules");
 toggle("t-any", "any");
+toggle("t-jaw", "jawOnly");
 
 let resizeTimer;
 addEventListener("resize", () => {
