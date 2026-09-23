@@ -106,9 +106,15 @@ _PROBE_JS = "() => {" + _ROW_TEXTS_JS + """
     }
   }
 
+  // "Cheapest from Fetching results SGD 606" is the tab still working out
+  // its own figure, whatever the progress bars say: a full browser gets the
+  // agency fares in a second wave, and a read taken between the waves saw
+  // S$606 while S$497 was still on its way.
+  const fetching = !!tab && /fetching/i.test(tab.textContent || '');
+
   return {rows: rows.length,
           min: prices.length ? Math.min.apply(null, prices) : null,
-          busy: busy,
+          busy: busy || fetching,
           quoted: quoted};
 }"""
 
@@ -511,6 +517,101 @@ def targets(cfg, combos, limit: int) -> list[dict]:
     return [_target(cfg, c) for c in picked]
 
 
+# A small page on the same site, opened once a run only to read the
+# browser's own client hints - a blank page has none to read.
+_IDENTITY_PAGE = "https://www.google.com/robots.txt"
+
+_HINTS_JS = """async () => navigator.userAgentData
+  ? await navigator.userAgentData.getHighEntropyValues(['architecture',
+      'bitness', 'model', 'platformVersion', 'fullVersionList', 'uaFullVersion'])
+  : null"""
+
+
+def _launch(pw):
+    """A whole browser, running hidden - not Playwright's headless shell.
+
+    Measured on 23 Sep 2026 on one laptop in Singapore, one search, within
+    the same few minutes: the stripped-down headless shell Playwright
+    launches by default was shown S$749 as the cheapest SIN-TAO 19-28 Dec
+    fare, and S$976 for the 8:20 PM Cathay flight. Microsoft Edge on the same
+    laptop, signed out and just as hidden, was shown that same flight at
+    S$497, plus S$606 and S$627 fares and the self-transfer and
+    separate-ticket ones - the list a person sees. Google keeps those for
+    browsers it takes for people, and the shell does not pass, from a
+    Singapore address or a US one. That, not where the server is, is why the
+    watcher's cheapest never matched the page.
+
+    Google Chrome where it is installed (GitHub's runners have it), else
+    Playwright's own full Chromium, and the shell only as a last resort. The
+    log says which one ran.
+    """
+    args = ["--disable-blink-features=AutomationControlled"]
+    for channel in ("chrome", "chromium"):
+        try:
+            browser = pw.chromium.launch(channel=channel, headless=True,
+                                         args=args)
+        except Exception as exc:
+            reason = (str(exc).strip().splitlines() or ["?"])[0]
+            log.info("browser: %s not available (%s)", channel, reason[:120])
+            continue
+        log.info("browser: %s %s, hidden", channel, browser.version)
+        return browser
+    log.warning("browser: only the headless shell would start - Google shows "
+                "it fewer fares, so verified prices may run high")
+    return pw.chromium.launch(args=args)
+
+
+def _plain_name(context, page) -> None:
+    """Stop the browser introducing itself as headless.
+
+    Even a whole browser run hidden puts "HeadlessChrome" in the name it
+    gives every site. In the same test, hidden Edge under its own name was
+    already getting the cheap fares, and under a plain name it got the
+    cheapest of them sooner - so the word goes. The client hints sent beside
+    the name have to be restated with it: replacing the name alone empties
+    them, which no ordinary browser does. So if they cannot be read, nothing
+    is changed and the read carries on under the browser's own name.
+    """
+    def first_line(exc):
+        return (str(exc).strip().splitlines() or ["?"])[0][:120]
+
+    hints = None
+    probe = context.new_page()
+    try:
+        probe.goto(_IDENTITY_PAGE, timeout=20_000)
+        hints = probe.evaluate(_HINTS_JS)
+    except Exception as exc:
+        log.info("browser: could not read its client hints (%s)", first_line(exc))
+    finally:
+        probe.close()
+    if not hints:
+        log.info("browser: kept its own name")
+        return
+
+    def plain(brands):
+        return [{"brand": b["brand"].replace("Headless", ""),
+                 "version": b["version"]} for b in brands or []]
+
+    try:
+        agent = page.evaluate("navigator.userAgent")
+        context.new_cdp_session(page).send("Emulation.setUserAgentOverride", {
+            "userAgent": agent.replace("Headless", ""),
+            "userAgentMetadata": {
+                "brands": plain(hints.get("brands")),
+                "fullVersionList": plain(hints.get("fullVersionList")),
+                "fullVersion": hints.get("uaFullVersion", ""),
+                "platform": hints.get("platform", ""),
+                "platformVersion": hints.get("platformVersion", ""),
+                "architecture": hints.get("architecture", ""),
+                "model": hints.get("model", ""),
+                "mobile": bool(hints.get("mobile")),
+                "bitness": hints.get("bitness", ""),
+            },
+        })
+    except Exception as exc:
+        log.info("browser: kept its own name (%s)", first_line(exc))
+
+
 def verify(cfg, targets_: list[dict], rows_each: int = 4,
            timeout_ms: int = 45_000) -> dict:
     """Open each trip's page(s) and return what they actually priced.
@@ -532,12 +633,12 @@ def verify(cfg, targets_: list[dict], rows_each: int = 4,
 
     out: dict = {}
     with sync_playwright() as pw:
-        browser = pw.chromium.launch(
-            args=["--disable-blink-features=AutomationControlled"])
+        browser = _launch(pw)
         try:
             context = browser.new_context(
                 locale="en-SG", viewport={"width": 1400, "height": 1000})
             page = context.new_page()
+            _plain_name(context, page)
             for target in targets_:
                 one_ticket = len(target["parts"]) == 1
                 parts, returns, others, floors, ok = [], [], [], [], True
