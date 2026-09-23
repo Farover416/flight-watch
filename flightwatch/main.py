@@ -177,6 +177,13 @@ def _verify(cfg, result: SweepResult) -> dict:
                 verified_back=backs[0].summary if backs else None,
                 verified_urls=tuple((p["label"] or "book", p["url"])
                                     for p in found["parts"]))
+    # Flights the page showed that the feed never had - the cheapest of them
+    # can beat everything the sweep found, and until now was only a footnote.
+    extra = verify.found_on_page(cfg, result.combos, verified)
+    if extra:
+        result.combos.extend(extra)
+        result.any_combos.extend(extra)
+        log.info("added %d trip(s) found only on the page", len(extra))
     # Re-rank: a verified price that undercuts its parsed one changes the order.
     result.combos.sort(key=lambda c: c.price)
     result.any_combos.sort(key=lambda c: c.price)

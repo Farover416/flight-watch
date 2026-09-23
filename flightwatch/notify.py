@@ -167,6 +167,10 @@ def leg_line(cfg, leg) -> str:
                 text += f", {out // 60}h out"
             parts.append(text)
         stops = "via " + ", ".join(parts)
+    elif getattr(leg, "connection_note", ""):
+        # Found on the page, so the stop's length and place are known but not
+        # its clock times - no "hours out" figure, rather than a made-up one.
+        stops = "via " + leg.connection_note
     else:
         stops = "direct" if leg.stops == 0 else f"{leg.stops} stop"
     bag = f" +S${leg.bag_fee} bag" if leg.bag_fee else ""

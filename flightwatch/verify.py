@@ -29,6 +29,7 @@ import logging
 import re
 import time
 from dataclasses import dataclass
+from datetime import datetime, timedelta
 
 log = logging.getLogger("flightwatch.verify")
 
@@ -280,6 +281,116 @@ def connection_ok(cfg, text: str) -> bool:
         if not rules.explore_min_minutes <= minutes <= rules.explore_max_minutes:
             return False
     return True
+
+
+_TIMES = re.compile(r"(\d{1,2}:\d{2}\s?[AP]M)(?:\s*\+(\d+))?")
+_ROUTE = re.compile(r"\b([A-Z]{3})\s*[–-]\s*([A-Z]{3})\b")
+_DURATION = re.compile(r"\b(\d+)\s*hr(?:\s*(\d+)\s*min)?|\b(\d+)\s*min\b")
+_SEPARATE = re.compile(r"separate tickets booked together", re.I)
+
+
+def _clock_time(text: str):
+    return datetime.strptime(text.replace(" ", "").upper(), "%I:%M%p").time()
+
+
+def leg_from_row(cfg, text: str, on_date: str, search_from: str,
+                 search_to: str, price: int, bag_fee: int = 0):
+    """A flight rebuilt from the words Google rendered for it, or None.
+
+    Reads '5:45 PM – 10:45 PM+1 Air China, Shandong 29 hr SIN–TAO 1 stop
+    21 hr 5 min PEK' back into times, carriers, route, length and stops.
+    Anything that does not read cleanly returns None rather than a guess: a
+    half-understood row added as a trip would be worse than leaving it as a
+    line of text in the message, which is where it came from.
+    """
+    from .models import Leg
+
+    text = (text or "").replace(" ", " ")
+    times = list(_TIMES.finditer(text))
+    route = _ROUTE.search(text)
+    stops = stops_in(text)
+    gaps = connections(text)
+    if len(times) < 2 or route is None or stops is None or gaps is None:
+        return None
+    leave, land = times[0], times[1]
+
+    # The carriers sit between the arrival time and the journey length.
+    tail = text[land.end():]
+    length = _DURATION.search(tail)
+    if length is None:
+        return None
+    carriers = _SEPARATE.sub("", tail[:length.start()]).strip(" ,")
+    airlines = tuple(a.strip() for a in carriers.split(",") if a.strip())
+    if not airlines:
+        return None
+    if length.group(1):
+        minutes = int(length.group(1)) * 60 + int(length.group(2) or 0)
+    else:
+        minutes = int(length.group(3))
+
+    try:
+        day = datetime.strptime(on_date, "%Y-%m-%d").date()
+        depart = datetime.combine(day, _clock_time(leave.group(1)))
+        arrive = datetime.combine(day + timedelta(days=int(land.group(2) or 0)),
+                                  _clock_time(land.group(1)))
+    except ValueError:
+        return None
+
+    after = _STOPS.split(text, maxsplit=1)[-1]
+    places = [airport for hours, mins, airport in _LAYOVER.findall(after)
+              if hours or mins][:len(gaps)]
+    note = ", ".join(f"{cfg.city_name(p)} {g // 60}h{g % 60:02d}m"
+                     for p, g in zip(places, gaps))
+
+    return Leg(search_from=search_from, search_to=search_to,
+               from_airport=route.group(1), to_airport=route.group(2),
+               depart=depart, arrive=arrive, duration_min=minutes,
+               stops=stops, airlines=airlines, price=price, bag_fee=bag_fee,
+               layover_ok=True, connection_note=note)
+
+
+def found_on_page(cfg, combos, verified: dict) -> list:
+    """Trips the browser saw that the search feed never returned.
+
+    The feed carries the first handful of itineraries on a search; the page,
+    once loaded, carries the rest. So the cheapest flight on a page can be
+    one the sweep never had - the S$607 Qingdao round trip was exactly that,
+    absent even from the rules-aside list - and the only thing that ever
+    sees it is this browser read. Reporting it as a footnote left the
+    headline S$242 too high. Here it becomes a trip in its own right, with
+    its own flight details, so it can lead the list and draw its own line.
+
+    Only for one-ticket trips: a pair's alternative is two separately
+    ticketed legs, each found on its own page, and presenting that as one
+    trip would need both halves read in full first.
+    """
+    from .models import Combo
+
+    by_key = {c.signature(): c for c in combos}
+    out = []
+    for key, found in verified.items():
+        other, base = found.get("other"), by_key.get(key)
+        if not other or base is None or base.back is not None:
+            continue
+        if other["price"] >= found["total"]:
+            continue
+        leg = leg_from_row(cfg, other["summary"], base.out.date,
+                           base.out.search_from, base.out.search_to,
+                           other["price"],
+                           bag_fee=_bag_fee(cfg, [other["summary"]] * 2))
+        if leg is None:
+            log.info("%-28s cheaper flight on the page could not be read "
+                     "back into a trip - reported in the message only",
+                     found["label"])
+            continue
+        url = found["parts"][0]["url"]
+        out.append(Combo(out=leg, back=None, back_date=base.back_date,
+                         country=base.country, total=other["price"],
+                         source="round-trip", verified=other["price"],
+                         verified_urls=(("book", url),)))
+        log.info("%-28s found on the page: S$%d %s", found["label"],
+                 other["price"], leg.airline_label)
+    return out
 
 
 def matches(text: str, want: dict) -> bool:

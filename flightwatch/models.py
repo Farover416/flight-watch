@@ -68,6 +68,12 @@ class Leg:
     # Failing legs are kept rather than dropped: they cost nothing extra to
     # carry, and they are what the unrestricted list is made of.
     layover_ok: bool = True
+    # The connection as Google wrote it - "Beijing Capital 21h05m" - for a leg
+    # read off a rendered page rather than the search feed. The page gives a
+    # stop's length and airport but never when it starts, so these legs carry
+    # no Layover objects: inventing a start time would make every "hours out
+    # in the city" figure derived from it quietly wrong.
+    connection_note: str = ""
 
     @property
     def date(self) -> str:
