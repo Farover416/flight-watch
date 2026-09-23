@@ -341,6 +341,17 @@ def _target(cfg, combo) -> dict:
     return {"key": combo.signature(), "label": label, "parts": parts}
 
 
+def _bag_fee(cfg, summaries) -> int:
+    """The checked-bag estimate for these flights, one leg at a time.
+
+    The whole row is handed to the fee table rather than a parsed airline
+    name: the table matches on a case-insensitive substring, and the row text
+    names every carrier on the itinerary - "ScootSingapore Airlines" and all -
+    so the dearest applicable fee is found without having to split the row up.
+    """
+    return sum(cfg.checked_bag_fee([text or ""]) for text in summaries)
+
+
 def _clock(when) -> str:
     """A datetime written the way Google writes a departure: '5:45 PM'."""
     return when.strftime("%I:%M %p").lstrip("0")
@@ -440,18 +451,35 @@ def verify(cfg, targets_: list[dict], rows_each: int = 4,
                 # separately, so the total is the sum of our two rows.
                 if one_ticket and returns:
                     total = returns[0].price
+                    legs = [parts[0]["mine"].summary, returns[0].summary]
+                elif one_ticket:
+                    total = parts[0]["mine"].price
+                    # One row, two flights: the carrier we can see is the
+                    # best guess for the one we cannot.
+                    legs = [parts[0]["mine"].summary] * 2
                 else:
                     total = sum(part["mine"].price for part in parts)
+                    legs = [part["mine"].summary for part in parts]
+                # Google will not price a checked bag, so the sweep adds an
+                # estimate and this did not - which made a Scoot fare look
+                # S$100 cheaper the moment a browser confirmed it, and put a
+                # saving on the chart that was only ever the missing bag.
+                # Both numbers now mean the same thing.
+                bags = _bag_fee(cfg, legs)
+                total += bags
                 found = {
                     "label": target["label"], "total": total, "parts": parts,
-                    "returns": returns,
+                    "returns": returns, "bags": bags,
                 }
                 if len(others) == len(parts):
                     # For one ticket this is an advertised "from" price: it
                     # still has a return to be chosen, so it is a floor, not
                     # a total. Said plainly wherever it is shown.
+                    other_legs = ([others[0].summary] * 2 if one_ticket
+                                  else [o.summary for o in others])
                     found["other"] = {
-                        "price": sum(o.price for o in others),
+                        "price": sum(o.price for o in others)
+                                 + _bag_fee(cfg, other_legs),
                         "summary": " + ".join(o.summary for o in others),
                         "advertised": one_ticket,
                     }

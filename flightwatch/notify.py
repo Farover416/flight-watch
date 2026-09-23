@@ -215,7 +215,12 @@ def format_verified(cfg, verified: dict) -> str:
     """
     lines = ["<b>Checked in a real browser</b>", ""]
     for found in sorted(verified.values(), key=lambda v: v["total"]):
-        lines.append(f"<b>{esc(found['label'])}</b> — <b>S${found['total']}</b>")
+        # Say so when part of the total is our own bag estimate rather than
+        # something Google quoted, because the rows below will not add up.
+        bags = found.get("bags") or 0
+        tail = f" <i>(incl. S${bags} bags)</i>" if bags else ""
+        lines.append(
+            f"<b>{esc(found['label'])}</b> — <b>S${found['total']}</b>{tail}")
         for part in found["parts"]:
             head = f"{part['label']} " if part["label"] else ""
             lines.append(
@@ -240,10 +245,11 @@ def format_verified(cfg, verified: dict) -> str:
         lines.append("")
     lines.append(
         "<i>Google's own Cheapest view, agency prices included — the number a "
-        "person sees on the page, which is lower than the airline fare the "
-        "list above quotes. Each price is read off the row for that exact "
-        "flight, so the number and the itinerary beside it belong together. "
-        "Bag rules still vary by carrier.</i>"
+        "person sees on the page. Each price is read off the row for that "
+        "exact flight, so the number and the itinerary beside it belong "
+        "together, and the same checked-bag estimate is added as everywhere "
+        "else — Google will not price a bag, and a total without one is not "
+        "comparable to a total with one.</i>"
     )
     return "\n".join(lines).rstrip()
 
