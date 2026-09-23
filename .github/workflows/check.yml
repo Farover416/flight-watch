@@ -64,7 +64,13 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 90
     steps:
+      # The branch as it is when this run starts, not the commit it was
+      # queued against. A run that waited behind another one would otherwise
+      # start from before that run's saved prices, add its own to the same
+      # files, and fail to save when the two versions collide.
       - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
 
       - uses: actions/setup-python@v5
         with:
