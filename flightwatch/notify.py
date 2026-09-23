@@ -232,16 +232,24 @@ def format_verified(cfg, verified: dict) -> str:
         # a trip.
         for fare in (found.get("returns") or [])[:3]:
             lines.append(f"    back  S${fare.price}  {esc(fare.summary)}")
-        # A different trip on the same page, kept as a different number. It
-        # is only here when its connections pass your layover rules, and for
-        # a one-ticket search it is a "from" price with a return still to
-        # choose - so it is a floor, not a total, and says so.
-        other = found.get("other")
-        if other and other["price"] < found["total"]:
-            floor = "from " if other.get("advertised") else ""
+        # Two different trips on the same page, kept as different numbers.
+        # The first passes your layover rules; the second is the cheapest
+        # there is, whatever its connections. The second is shown only when
+        # it actually undercuts the first, so a rule you have already set is
+        # not argued with on every line - but a price the page plainly shows
+        # is never hidden from you either.
+        def elsewhere(entry, label):
+            if not entry or entry["price"] >= found["total"]:
+                return
+            floor = "from " if entry.get("advertised") else ""
             lines.append(
-                f"    also on this page: {floor}<b>S${other['price']}</b> — "
-                f"{esc(other['summary'][:110])}")
+                f"    {label}: {floor}<b>S${entry['price']}</b> — "
+                f"{esc(entry['summary'][:110])}")
+
+        other, cheapest = found.get("other"), found.get("floor")
+        elsewhere(other, "also on this page")
+        if not other or (cheapest and cheapest["price"] < other["price"]):
+            elsewhere(cheapest, "cheapest on the page, rules aside")
         lines.append("")
     lines.append(
         "<i>Google's own Cheapest view, agency prices included — the number a "

@@ -429,9 +429,9 @@ def verify(cfg, targets_: list[dict], rows_each: int = 4,
             page = context.new_page()
             for target in targets_:
                 one_ticket = len(target["parts"]) == 1
-                parts, returns, others, ok = [], [], [], True
+                parts, returns, others, floors, ok = [], [], [], [], True
                 for part_label, url, want in target["parts"]:
-                    fares, backs, mine, other = _read(
+                    fares, backs, mine, other, floor = _read(
                         cfg, page, target["label"], part_label, url,
                         rows_each, timeout_ms, follow_return=one_ticket,
                         want=want)
@@ -443,6 +443,8 @@ def verify(cfg, targets_: list[dict], rows_each: int = 4,
                     returns = backs
                     if other is not None:
                         others.append(other)
+                    if floor is not None:
+                        floors.append(floor)
                 if not ok:
                     continue
                 # One ticket: the total is our outbound paired with its
@@ -481,6 +483,15 @@ def verify(cfg, targets_: list[dict], rows_each: int = 4,
                         "price": sum(o.price for o in others)
                                  + _bag_fee(cfg, other_legs),
                         "summary": " + ".join(o.summary for o in others),
+                        "advertised": one_ticket,
+                    }
+                if len(floors) == len(parts):
+                    floor_legs = ([floors[0].summary] * 2 if one_ticket
+                                  else [f.summary for f in floors])
+                    found["floor"] = {
+                        "price": sum(f.price for f in floors)
+                                 + _bag_fee(cfg, floor_legs),
+                        "summary": " + ".join(f.summary for f in floors),
                         "advertised": one_ticket,
                     }
                 out[target["key"]] = found
@@ -564,11 +575,18 @@ def _trustworthy(tag, settled, snapshot) -> bool:
 
 
 def _pick(cfg, rows: list[str], want: dict):
-    """Our own row, and the cheapest one worth considering beside it.
+    """Our own row, and the two worth naming beside it.
 
-    Both come from the same rendered list. The first is the flight we set out
-    to price; the second is the cheapest whose connections pass the layover
-    rules, which is a different trip and stays a different number.
+    All three come from the same rendered list:
+
+    ``mine``  the flight we set out to price - the only one that sets this
+              trip's price, so the number and the itinerary agree.
+    ``other`` the cheapest whose connections pass the layover rules. A
+              different trip, so it stays a different number.
+    ``floor`` the cheapest row on the page, rules or no rules. Nothing is
+              ever decided on it, but leaving it out is how the watcher
+              could show S$749 while the page plainly said S$607 - and that
+              gap should be yours to judge, not ours to hide.
     """
     fares = [(text, RenderedFare.parse(text)) for text in rows]
     fares = [(text, fare) for text, fare in fares if fare is not None]
@@ -576,16 +594,17 @@ def _pick(cfg, rows: list[str], want: dict):
 
     mine = next((f for text, f in fares if matches(text, want)), None)
     other = next((f for text, f in fares if connection_ok(cfg, text)), None)
-    return mine, other
+    floor = fares[0][1] if fares else None
+    return mine, other, floor
 
 
 def _read(cfg, page, label, part_label, url, rows_each, timeout_ms,
           follow_return=False, want=None):
     """What one search page prices.
 
-    Returns (fares, returns, mine, other): everything listed, the return
-    options behind OUR outbound for a round trip, our own row, and the
-    cheapest row on the page with acceptable connections.
+    Returns (fares, returns, mine, other, floor): everything listed, the
+    return options behind OUR outbound for a round trip, our own row, the
+    cheapest row with acceptable connections, and the cheapest row there is.
     """
     tag = f"{label} {part_label}".strip() or label
     want = want or {}
@@ -597,48 +616,48 @@ def _read(cfg, page, label, part_label, url, rows_each, timeout_ms,
             why = ("not a results page" if any(m in body for m in _BLOCKED)
                    else "rendered no fares")
             log.warning("%-28s %s - skipped", tag, why)
-            return [], [], None, None
+            return [], [], None, None, None
         # Switching tabs re-renders the list, so whatever settled a moment ago
         # has to settle again; an already-selected tab changes nothing.
         if page.evaluate(_CHEAPEST_JS) == "clicked":
             settled, snapshot = _settle_prices(page, _RESORT_MS)
         if not _trustworthy(tag, settled, snapshot):
-            return [], [], None, None
+            return [], [], None, None, None
 
         rows = page.evaluate(_ROWS_JS)
         fares = _fares_from(rows, rows_each)
         if not fares:
             log.warning("%-28s rendered no fares", tag)
-            return [], [], None, None
-        mine, other = _pick(cfg, rows, want)
+            return [], [], None, None, None
+        mine, other, floor = _pick(cfg, rows, want)
         if mine is None:
             # Better to say nothing than to price a different flight and put
             # this trip's name on it.
             log.info("%-28s our flight (%s %s) is not on the page - "
                      "left unverified", tag, want.get("depart", "?"),
                      ", ".join(want.get("airlines") or ()) or "?")
-            return [], [], None, other
+            return [], [], None, other, floor
         if not follow_return:
-            return fares, [], mine, other
+            return fares, [], mine, other, floor
 
         opened = page.evaluate(_OPEN_ROW_JS, want)
         if opened != "opened":
             log.info("%-28s could not open our flight (%s)", tag, opened)
-            return fares, [], mine, other
+            return fares, [], mine, other, floor
         if not _settle(page, _RETURNS_READY_JS, _RETURNS_MS):
             log.info("%-28s return list did not appear", tag)
-            return fares, [], mine, other
+            return fares, [], mine, other, floor
         # The second screen sweeps the agencies exactly as the first one does,
         # so the first returns drawn are the dear ones just the same.
         settled, snapshot = _settle_prices(page, _RETURNS_MS)
         if snapshot["min"] is None or not _trustworthy(f"{tag} return",
                                                        settled, snapshot):
             log.info("%-28s return list was unreadable", tag)
-            return fares, [], mine, other
+            return fares, [], mine, other, floor
         returns = _fares_from(page.evaluate(_ROWS_JS), rows_each)
         if not returns:
             log.info("%-28s return list was unreadable", tag)
-        return fares, returns, mine, other
+        return fares, returns, mine, other, floor
     except Exception as exc:  # one bad page must not lose the rest
         log.warning("%-28s could not be read (%s)", tag, exc)
-        return [], [], None, None
+        return [], [], None, None, None

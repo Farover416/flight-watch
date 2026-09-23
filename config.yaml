@@ -253,7 +253,13 @@ layover:
   min_minutes: 75
   short_max_minutes: 240
   explore_min_minutes: 420
-  explore_max_minutes: 1080  # 18h ceiling - kills the 28h "one stop"
+  # 24h ceiling. It was 18, which was the one rule standing between you and a
+  # S$607 Qingdao round trip: 21h 05 at Beijing, ~12h 40 of it in daylight and
+  # only ~8h 30 dead overnight, so it cleared every other test here and was
+  # thrown out for being three hours too long. A stop you can leave the airport
+  # for is the thing these rules are meant to allow; the two below are what
+  # keep it from becoming a night in a terminal.
+  explore_max_minutes: 1440
   day_from_hour: 8           # when somewhere to eat is actually open
   day_to_hour: 21
   min_daylight_minutes: 300  # at least 5 hours genuinely out there
