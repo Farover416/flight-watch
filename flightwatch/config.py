@@ -81,6 +81,9 @@ class Layover:
 class Config:
     origin: str = "SIN"
     currency: str = "SGD"
+    # The country Google should search as. Without it Google uses the address
+    # of whatever machine is asking, and the scheduled runs ask from the US.
+    market: str | None = "SG"
     adults: int = 1
     seat: str = "economy"
     carry_on_bags: int = 1
@@ -290,7 +293,7 @@ def load(path: str | Path | None = None) -> Config:
 
     cfg = Config()
     for key in (
-        "origin", "currency", "adults", "seat", "carry_on_bags",
+        "origin", "currency", "market", "adults", "seat", "carry_on_bags",
         "checked_bags", "checked_bag_fees", "max_stops",
         "exclude_basic_economy", "max_total", "realert_drop", "new_best_drop",
         "return_dates", "min_nights", "destinations", "rail_groups",

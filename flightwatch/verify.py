@@ -741,6 +741,15 @@ def _read(cfg, page, label, part_label, url, rows_each, timeout_ms,
             log.warning("%-28s rendered no fares", tag)
             return [], [], None, None, None
         mine, other, floor = _pick(cfg, rows, want)
+        # What this page actually showed. Without it a run could only say what
+        # it concluded, never what it saw - which is how a S$607 on one screen
+        # and a S$849 in the results sat side by side with no way to tell a
+        # moved market from a missed flight.
+        log.info("%-28s page: %s | ours %s | within rules %s | cheapest %s",
+                 tag, " ".join(f"S${f.price}" for f in fares[:4]) or "-",
+                 f"S${mine.price}" if mine else "not listed",
+                 f"S${other.price}" if other else "-",
+                 f"S${floor.price} {floor.summary[:60]}" if floor else "-")
         if mine is None:
             # Better to say nothing than to price a different flight and put
             # this trip's name on it.

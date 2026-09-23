@@ -48,7 +48,7 @@ def build_query(cfg, legs: Sequence[LegSpec], trip: str):
         )
         for origin, dest, date, earliest in legs
     ]
-    return create_query(
+    query = create_query(
         flights=queries,
         trip=trip,
         seat=cfg.seat,
@@ -60,6 +60,18 @@ def build_query(cfg, legs: Sequence[LegSpec], trip: str):
         checked_bags=cfg.checked_bags,
         exclude_basic_economy=cfg.exclude_basic_economy,
     )
+    # Say where the search is being made from. The library sends only the
+    # language and the currency, so Google falls back to the requesting
+    # machine's address - and the scheduled runs come from a GitHub server in
+    # the United States. On the same Qingdao search at the same hour, a
+    # browser in Singapore was shown S$597 and S$606 fares that the runner
+    # never saw at all. Everything built here - the feed request, the page
+    # the browser opens, the links in your alerts - now asks as Singapore.
+    market = getattr(cfg, "market", None)
+    if market:
+        plain = query.params
+        query.params = lambda: {**plain(), "gl": market}
+    return query
 
 
 def _to_datetime(simple) -> datetime:

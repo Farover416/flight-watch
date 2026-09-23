@@ -5,6 +5,11 @@
 
 origin: SIN
 currency: SGD
+# Search as Singapore. Google otherwise decides from the address of the
+# machine asking, and the scheduled runs come from a GitHub server in the US:
+# on the same Qingdao search at the same hour, a browser here was shown S$597
+# and S$606 fares that the runner never saw. Set this to where you would book.
+market: SG
 adults: 1
 seat: economy
 
