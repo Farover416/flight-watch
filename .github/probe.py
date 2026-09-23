@@ -6,6 +6,10 @@ got the full list. On this search a phone or laptop in Singapore is shown
 S$497, S$606 and S$627 plus self-transfer and two-ticket fares, while the
 watcher on GitHub is shown only the airline fares, from S$749.
 
+This run also asks whether GitHub is merely slow: each page is watched for
+three minutes, with a timeline of what it shows, and then loaded a second
+time in the same browser.
+
 It saves nothing and changes nothing; the answer is in the job's log.
 """
 
@@ -34,17 +38,15 @@ SG = "Asia/Singapore"
 SETUPS = {
     "Linux": [
         ("chrome, hidden, UTC clock (the watcher now)", "chrome", True, "UTC"),
-        ("chrome, hidden, Singapore clock", "chrome", True, SG),
         ("chrome, virtual screen, Singapore clock", "chrome", False, SG),
     ],
     "Windows": [
-        ("chrome, hidden, UTC clock (the watcher's setup)", "chrome", True, "UTC"),
-        ("chrome, hidden, Singapore clock", "chrome", True, SG),
-        ("edge, hidden, Singapore clock", "msedge", True, SG),
         ("edge, window, Singapore clock", "msedge", False, SG),
-        ("chrome, window, Singapore clock", "chrome", False, SG),
     ],
 }
+
+# How long each page is watched before giving up on anything more arriving.
+WATCH_S = 180
 
 LOOK_JS = """() => {
   const rows = Array.from(new Set(Array.from(document.querySelectorAll('li'))
@@ -144,8 +146,29 @@ def plain_name(context, page):
     })
 
 
+def summary(snap):
+    rows = snap["rows"]
+    prices = sorted(price(r) for r in rows)
+    full = any(FULL_LIST_ROWS.search(r) for r in rows)
+    return (f"{len(rows):>2} fares, cheapest S${prices[0] if prices else '-'}, "
+            f"{'loading' if snap['busy'] else 'idle   '}, "
+            f"{'HAS' if full else 'no '} agency rows | {snap['said']}")
+
+
+def verdict(snap):
+    rows = sorted(snap["rows"], key=price)
+    full = any(FULL_LIST_ROWS.search(r) for r in rows)
+    theirs = {t: next((price(r) for r in rows if r.startswith(t)), None) for t in THEIRS}
+    cheap = sum(1 for p in theirs.values() if p and p < AIRLINE_ONLY_CHEAPEST)
+    shown = ", ".join(f"{t} S${p}" if p else f"{t} not shown" for t, p in theirs.items())
+    return full or cheap >= 2, shown
+
+
 def look(pw, name, channel, headless, clock):
-    """Open the search once. Returns True for the full list, False if not, None if unread."""
+    """Watch the search for WATCH_S seconds, then load it once more.
+
+    Returns True for the full list, False if not, None if unread.
+    """
     try:
         browser = pw.chromium.launch(
             channel=channel, headless=headless,
@@ -153,45 +176,57 @@ def look(pw, name, channel, headless, clock):
     except Exception as exc:
         print(f"\n[{name}] would not start: {first_line(exc)}")
         return None
-    started = time.time()
+    print(f"\n[{name}]")
     try:
         context = browser.new_context(locale="en-SG", timezone_id=clock,
                                       viewport={"width": 1400, "height": 1000})
         page = context.new_page()
         if headless:
             plain_name(context, page)
+        started = time.time()
+        page.goto(SEARCH, wait_until="domcontentloaded", timeout=60_000)
+        last_line, next_tick = None, 0.0
+        while True:
+            elapsed = time.time() - started
+            page.evaluate(CHEAPEST_JS)
+            snap = page.evaluate(LOOK_JS)
+            line = summary(snap)
+            # Every change, plus a heartbeat so a quiet page is visibly quiet.
+            if line != last_line or elapsed >= next_tick:
+                print(f"   {elapsed:>5.0f}s  {line}")
+                last_line = line
+                next_tick = elapsed + 30
+            if elapsed >= WATCH_S:
+                break
+            page.wait_for_timeout(1000)
+        first_look = snap
+
+        print(f"   loading the same search again in the same browser...")
         page.goto(SEARCH, wait_until="domcontentloaded", timeout=60_000)
         settle(page, 45)
         page.evaluate(CHEAPEST_JS)
         page.wait_for_timeout(1500)
-        snap, settled = settle(page, 45)
+        again, _ = settle(page, 45)
+        print(f"   again: {summary(again)}")
         who = page.evaluate(WHO_JS)
         body = (page.inner_text("body") or "").lower()
     except Exception as exc:
-        print(f"\n[{name}] could not read the page: {first_line(exc)}")
+        print(f"   could not read the page: {first_line(exc)}")
         return None
     finally:
         browser.close()
 
-    rows = sorted(snap["rows"], key=price)
-    full = any(FULL_LIST_ROWS.search(r) for r in rows)
-    theirs = {t: next((price(r) for r in rows if r.startswith(t)), None) for t in THEIRS}
-    cheap = sum(1 for p in theirs.values() if p and p < AIRLINE_ONLY_CHEAPEST)
-    got = full or cheap >= 2
-
-    print(f"\n[{name}] {len(rows)} fares after {time.time() - started:.0f}s"
-          f"{'' if settled else ' (still changing when time ran out)'}")
-    print(f"   Google says: {snap['said']}")
     print(f"   browser: {who['brands'] or who['agent']} | webdriver={who['webdriver']}"
           f" | clock {who['clock']}")
     if any(w in body for w in ("unusual traffic", "captcha", "before you continue")):
         print("   Google showed a bot check or consent page, not results")
-    for row in rows[:6]:
-        print(f"   S${price(row):<6} {row[:100]}")
-    shown = ", ".join(f"{t} S${p}" if p else f"{t} not shown" for t, p in theirs.items())
-    print(f"   -> {'FULL LIST' if got else 'airline-only list'} ({shown}; "
-          f"{'has' if full else 'no'} self-transfer or two-ticket rows)")
-    return got
+    got_first, shown_first = verdict(first_look)
+    got_again, shown_again = verdict(again)
+    print(f"   -> after {WATCH_S}s: {'FULL LIST' if got_first else 'airline-only list'}"
+          f" ({shown_first})")
+    print(f"   -> second load: {'FULL LIST' if got_again else 'airline-only list'}"
+          f" ({shown_again})")
+    return got_first or got_again
 
 
 def main():
