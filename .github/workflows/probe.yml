@@ -1,0 +1,43 @@
+name: fare probe
+
+# A one-off test, started by hand: the Qingdao 19-28 Dec search in several
+# browser setups on GitHub's Linux and Windows machines, to find one that is
+# shown the fares a person in Singapore sees. Saves nothing and changes
+# nothing; the answer is at the end of each job's log.
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  probe:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
+    env:
+      PYTHONUTF8: "1"
+      PYTHONIOENCODING: utf-8
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      # Only the library: every setup uses the Chrome or Edge already
+      # installed on the machine.
+      - run: pip install playwright
+
+      - name: Probe, with a virtual screen for the windowed setup
+        if: runner.os == 'Linux'
+        run: |
+          command -v xvfb-run || (sudo apt-get update && sudo apt-get install -y xvfb)
+          xvfb-run -a python .github/probe.py
+
+      - name: Probe
+        if: runner.os == 'Windows'
+        run: python .github/probe.py
