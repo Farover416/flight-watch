@@ -1,0 +1,32 @@
+{
+  "total": 546,
+  "verified": 546,
+  "signature": "TAO/TAO/2026-12-19/2026-12-29/round-trip",
+  "seen_at": "2026-09-25T10:30:59Z",
+  "detail": {
+    "signature": "TAO/TAO/2026-12-19/2026-12-29/round-trip",
+    "total": 546,
+    "parsed": 546,
+    "verified": 546,
+    "verified_back": null,
+    "country": "China",
+    "source": "round-trip",
+    "open_jaw": false,
+    "nights": 9,
+    "out": {
+      "route": "SIN-TAO",
+      "depart": "2026-12-19T03:30:00",
+      "arrive": "2026-12-20T08:55:00",
+      "stops": 1,
+      "airlines": [
+        "China Eastern"
+      ],
+      "price": 546
+    },
+    "back": {
+      "route": "TAO-SIN",
+      "date": "2026-12-29",
+      "verified": false
+    }
+  }
+}
