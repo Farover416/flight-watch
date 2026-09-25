@@ -69,10 +69,11 @@ class Leg:
     # carry, and they are what the unrestricted list is made of.
     layover_ok: bool = True
     # The connection as Google wrote it - "Beijing Capital 21h05m" - for a leg
-    # read off a rendered page rather than the search feed. The page gives a
-    # stop's length and airport but never when it starts, so these legs carry
-    # no Layover objects: inventing a start time would make every "hours out
-    # in the city" figure derived from it quietly wrong.
+    # read off a rendered page rather than the search feed. A row gives a
+    # stop's length and airport but never when it starts, so such a leg
+    # carries Layover objects only when the row was opened up on the page and
+    # the real times read off it: inventing a start time would make every
+    # "hours out in the city" figure derived from it quietly wrong.
     connection_note: str = ""
     # "self transfer" or "separate tickets" when the page sells the flight
     # that way: a connection you collect your bag at and check in again for,

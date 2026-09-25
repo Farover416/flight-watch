@@ -333,6 +333,11 @@ def format_survey(cfg, found) -> str:
     if found.failed:
         shown = ", ".join(found.failed[:6]) + ("…" if len(found.failed) > 6 else "")
         lines.append(f"<i>Could not read {len(found.failed)}: {esc(shown)}</i>")
+    unread = getattr(found, "unread", [])
+    if unread:
+        shown = ", ".join(unread[:6]) + ("…" if len(unread) > 6 else "")
+        lines.append(f"<i>Ran out of time before {len(unread)} more: {esc(shown)}"
+                     " - the search feed's prices stand for those</i>")
     lines.append("")
     lines.append(
         "<i>" + ("Google's own Cheapest view as your laptop gets it, agency and "

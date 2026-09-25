@@ -17,10 +17,18 @@ So for a trip with a handful of fixed dates, open all of them:
                             paired afterwards the way the sweep pairs them
 
 For a one-ticket search the first screen prices each outbound with its
-cheapest return - which may be a return you would never take. So the
-cheapest outbounds that pass your rules are each opened, and the return
-screen is read for the cheapest return that passes them too: its price is
-the price of a trip you would actually book.
+cheapest return - which may be a return you would never take. So outbounds
+are opened cheapest first, and each one's return screen is read for the
+cheapest return you could actually take. Since no trip on an outbound can
+cost less than that outbound's first-screen price, opening stops as soon as
+the next outbound's price is no lower than the trip already found: what is
+reported is the cheapest trip on the page, not the cheapest of the first two
+tried.
+
+A stop long enough to leave the airport for is only within your rules if
+enough of it falls in daylight, and a row never says when its stop happens.
+So such a row is opened up on the page ("Flight details"), which lists every
+flight's times, and judged on those.
 
 It takes a while - forty-odd pages and their return screens - and that is
 the point. It stops at the first sign of a bot check rather than pressing on.
@@ -30,23 +38,39 @@ from __future__ import annotations
 
 import dataclasses
 import logging
+import re
 import time
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timedelta
 
 from . import combine
-from .models import Combo, Leg
+from .models import Combo, Layover, Leg
+from .search import layovers_ok
 from .verify import (_BLOCKED, _CHEAPEST_JS, _RESORT_MS, _RETURNS_MS, _ROWS_JS,
-                     _SETTLE_MS, RenderedFare, _bag_fee, _launch, _plain_name,
-                     _search, _settle_prices, _trustworthy, connection_ok,
-                     departs_at, leg_from_row)
+                     _SETTLE_MS, RenderedFare, _bag_fee, _clock_time, _launch,
+                     _plain_name, _search, _settle_prices, _trustworthy,
+                     connection_ok, connections, departs_at, leg_from_row)
 
 log = logging.getLogger("flightwatch.survey")
 
-# How many of the cheapest acceptable outbounds on a one-ticket page get
-# their return screen opened. The first sets the price nearly always; the
-# second is there for when its cheapest return is one you would not take.
-OPEN_PER_PAGE = 2
+# The most return screens one one-ticket page may open. Most pages need one:
+# when the cheapest outbound's cheapest return is one you would take, nothing
+# else on the page can beat it. This caps the odd page where every cheap
+# outbound comes with a return you would not take.
+MAX_SCREENS = 5
+
+# No new page is started after this long, so the run finishes - and its prices
+# are saved and sent - inside its time limit: 100 minutes for a check on the
+# laptop, 90 for GitHub's whole job, Taipei included when it is due.
+BUDGET_MIN = 80
+BUDGET_MIN_GITHUB = 60
+
+# On a one-way page, rows are opened up for their stop times cheapest first
+# until this many flights within the rules are known, or this many rows have
+# been opened. A pair is built from each page's cheapest flights, so the
+# dearer end of a thirty-row list never decides anything.
+KNOWN_GOOD_ONE_WAY = 3
+MAX_OPENED_ONE_WAY = 12
 
 
 class Blocked(RuntimeError):
@@ -78,8 +102,11 @@ class SurveyResult:
     pages: int = 0
     screens: int = 0
     failed: list = field(default_factory=list)
+    unread: list = field(default_factory=list)       # not reached in time
     blocked: bool = False
     seconds: float = 0.0
+    opened_up: int = 0                               # rows opened for stop times
+    untimed: int = 0                                 # ... that could not be read
 
     def best(self) -> dict:
         """The cheapest trip in each category, within your rules."""
@@ -174,13 +201,18 @@ def _sorted(rows):
     return sorted([(r, p) for r, p in priced if p is not None], key=lambda x: x[1])
 
 
+def _by_cost(cfg, rows):
+    """(row, fare, bag), cheapest first with the bag counted - a fare that
+    looks cheaper can cost more once its carrier's bag is added."""
+    return sorted(((text, fare, _bag_fee(cfg, [text])) for text, fare in _sorted(rows)),
+                  key=lambda row: row[1] + row[2])
+
+
 def _matching(sweep_legs, leg: Leg):
     """The feed's own copy of a flight read off a page, if the sweep had it.
 
-    Worth finding because the feed says when a connection happens, which a
-    page row never does - and without that, the half of the layover rules
-    about daylight hours cannot be applied. A flight the feed never saw is
-    judged on connection lengths alone, as it always was.
+    The feed says when each stop happens, which a page row never does, so a
+    twin found here saves opening the row up on the page.
     """
     for other in sweep_legs:
         if (other.depart == leg.depart and other.arrive == leg.arrive
@@ -189,82 +221,248 @@ def _matching(sweep_legs, leg: Leg):
     return None
 
 
-def _leg(cfg, text, on_date, frm, to, sweep_legs, price=0, bag=0):
-    leg = leg_from_row(cfg, text, on_date, frm, to, price, bag_fee=bag)
-    if leg is None:
-        return None
-    ok = connection_ok(cfg, text)
-    twin = _matching(sweep_legs, leg)
-    if twin is not None:
-        ok = ok and twin.layover_ok
-    return dataclasses.replace(leg, layover_ok=ok)
+def _flight(text: str) -> str:
+    """The part of a row that says which flight it is - not what it costs.
 
-
-def first_choices(cfg, rows, earliest, sweep_legs, page: Page, count=OPEN_PER_PAGE):
-    """The outbounds worth opening: the cheapest few within the rules, and
-    the cheapest of all, rules aside."""
-    ok, floor = [], None
-    for text, price in _sorted(rows):
-        if _early(text, earliest):
-            continue
-        leg = _leg(cfg, text, page.out_date, cfg.origin, page.out_city, sweep_legs)
-        if leg is None:
-            continue
-        if floor is None:
-            floor = text
-        if leg.layover_ok and len(ok) < count:
-            ok.append(text)
-    return ok, floor
-
-
-def best_return(cfg, rows, page: Page, sweep_legs, rules: bool):
-    """The cheapest flight home on a return screen that you could take.
-
-    Always: lands before the deadline. With ``rules``: its connections pass
-    too. Returns (row text, leg) or (None, None).
+    The same flight is listed on several pages (its round trip, its one-way
+    search, as a return), priced differently on each; what its stops are is
+    decided once.
     """
-    for text, price in _sorted(rows):
-        leg = _leg(cfg, text, page.back_date, page.back_city, cfg.origin, sweep_legs)
-        if leg is None or leg.arrive > cfg.arrive_home_by:
-            continue
-        if rules and not leg.layover_ok:
-            continue
-        return text, leg
-    return None, None
+    return re.split(r"\s+\d[\d,]* kg CO2e|\s+SGD\s?\d", text or "", maxsplit=1)[0]
 
 
-def one_ticket(cfg, page: Page, out_text, back_text, sweep_legs, url):
-    """A one-ticket trip from the two rows that make it up, or None."""
-    total = _price(back_text)
-    out = _leg(cfg, out_text, page.out_date, cfg.origin, page.out_city, sweep_legs,
-               bag=_bag_fee(cfg, [out_text]))
-    back = _leg(cfg, back_text, page.back_date, page.back_city, cfg.origin,
-                sweep_legs, bag=_bag_fee(cfg, [back_text]))
-    if total is None or out is None or back is None:
+def _needs_daylight(cfg, text) -> bool:
+    """Whether a stop on this row is long enough for the daylight rule to
+    decide it - the only kind whose clock times matter."""
+    rules = cfg.layover
+    return any(rules.explore_min_minutes <= gap <= rules.explore_max_minutes
+               for gap in connections(text) or [])
+
+
+# A row opened up lists each flight as its departure and its arrival: a time,
+# then the airport - "12:10 AM+1Hong Kong International Airport (HKG)" on a
+# wide window, the airport on the next line on a narrow one. The "+1" counts
+# from the day the trip leaves, and every time is local to its airport.
+_STEP = re.compile(
+    r"^[ \t]*(\d{1,2}:\d{2}\s?[AP]M)(?:\s*\+(\d+))?[ \t]*(?:\n[ \t]*)?"
+    r"[^\n(]{0,90}?\(([A-Z]{3})\)", re.M)
+
+
+def stops_from_details(text, on_date):
+    """(departure, arrival, stops) from an opened-up row, or None.
+
+    The stops carry their real clock times at the connecting airport - read
+    off the page, not worked out - so the daylight half of the rules can be
+    applied to them exactly as it is to the feed's flights.
+    """
+    steps = _STEP.findall(text or "")
+    if len(steps) < 2 or len(steps) % 2:
         return None
-    if (datetime.strptime(page.back_date, "%Y-%m-%d").date()
-            - out.arrive.date()).days < cfg.min_nights:
+    try:
+        day = datetime.strptime(on_date, "%Y-%m-%d").date()
+        when = [(datetime.combine(day + timedelta(days=int(plus or 0)),
+                                  _clock_time(clock)), airport)
+                for clock, plus, airport in steps]
+    except ValueError:
         return None
-    total += out.bag_fee + back.bag_fee
-    return Combo(out=out, back=back, back_date=page.back_date,
-                 country=cfg.country_of(page.out_city), total=total,
-                 source="round-trip" if page.kind == "rt" else "multi-city",
+    stops = []
+    for i in range(1, len(when) - 1, 2):
+        (landed, here), (left, _there) = when[i], when[i + 1]
+        if left < landed:
+            return None
+        stops.append(Layover(airport=here, start=landed, end=left))
+    return when[0][0], when[-1][0], tuple(stops)
+
+
+def _agrees(details, leg: Leg, text) -> bool:
+    """The opened-up row is the row it was opened from: same times, same stops."""
+    depart, arrive, stops = details
+    gaps = connections(text) or []
+    return (depart == leg.depart and arrive == leg.arrive
+            and len(stops) == leg.stops == len(gaps)
+            and all(abs(s.minutes - g) <= 1 for s, g in zip(stops, gaps)))
+
+
+# Opens one exact row up, reads what it says, and folds it back - waiting for
+# the row to read as it did, since the list is found by its rows' text.
+_DETAILS_JS = """async (want) => {
+  const norm = s => (s || '').replace(/\\s+/g, ' ').trim();
+  const sleep = ms => new Promise(r => setTimeout(r, ms));
+  const row = Array.from(document.querySelectorAll('li'))
+    .find(li => norm(li.innerText) === want);
+  if (!row) return {error: 'no match'};
+  const toggle = () => row.querySelector('button[aria-label^="Flight details"]');
+  const button = toggle();
+  if (!button) return {error: 'no details button'};
+  if (button.getAttribute('aria-expanded') !== 'true') button.click();
+  let text = null;
+  for (let i = 0; i < 40 && text === null; i++) {
+    await sleep(150);
+    if (/Travel time/i.test(row.innerText || '')) {
+      await sleep(300);
+      text = row.innerText;
+    }
+  }
+  const again = toggle();
+  if (again && again.getAttribute('aria-expanded') === 'true') again.click();
+  let restored = false;
+  for (let i = 0; i < 40 && !restored; i++) {
+    await sleep(150);
+    restored = norm(row.innerText) === want;
+  }
+  return {text, restored};
+}"""
+
+
+class Judge:
+    """Whether a row's stops pass your layover rules - all of them.
+
+    The length half reads off the row. The daylight half needs to know when a
+    stop happens: from the feed's copy of the flight when the sweep had it,
+    otherwise by opening the row up on the page. A stop that could not be
+    timed is not counted as within the rules - it stays in the rules-aside
+    list, where it belongs until someone has looked at it.
+    """
+
+    def __init__(self, cfg, sweep_legs):
+        self.cfg = cfg
+        self.sweep_legs = list(sweep_legs)
+        self.known: dict = {}
+        self.opened = 0
+        self.untimed = 0
+
+    def leg(self, text, on_date, frm, to, page=None, price=0, bag=0):
+        """The row as a flight, its layover_ok decided, or None if unreadable.
+
+        Without ``page`` a row that needs opening up is judged not within the
+        rules, and not remembered - it can still be decided later, on its page.
+        """
+        key = (_flight(text), on_date, frm, to)
+        leg = self.known.get(key)
+        if leg is None:
+            leg, final = self._decide(text, on_date, frm, to, page)
+            if leg is None:
+                return None
+            if final:
+                self.known[key] = leg
+        return dataclasses.replace(leg, price=price, bag_fee=bag)
+
+    def needs_page(self, text, on_date, frm, to) -> bool:
+        """Whether judging this row means opening it up on the page."""
+        cfg = self.cfg
+        if ((_flight(text), on_date, frm, to) in self.known
+                or not connection_ok(cfg, text) or not _needs_daylight(cfg, text)):
+            return False
+        leg = leg_from_row(cfg, text, on_date, frm, to, 0)
+        if leg is None:
+            return False
+        twin = _matching(self.sweep_legs, leg)
+        return twin is None or not twin.layovers
+
+    def _decide(self, text, on_date, frm, to, page):
+        cfg = self.cfg
+        leg = leg_from_row(cfg, text, on_date, frm, to, 0)
+        if leg is None:
+            return None, True
+        if not connection_ok(cfg, text):
+            return dataclasses.replace(leg, layover_ok=False), True
+        if not _needs_daylight(cfg, text):
+            return leg, True
+        twin = _matching(self.sweep_legs, leg)
+        if twin is not None and twin.layovers:
+            return dataclasses.replace(leg, layovers=twin.layovers,
+                                       layover_ok=twin.layover_ok), True
+        if page is None:
+            return dataclasses.replace(leg, layover_ok=False), False
+        try:
+            got = page.evaluate(_DETAILS_JS, text) or {}
+        except Exception as exc:
+            log.info("    could not open up %s (%s)", text[:48], exc)
+            got = {}
+        if got.get("error") == "no match":
+            # not on the screen just now - left undecided, not marked unreadable
+            return dataclasses.replace(leg, layover_ok=False), False
+        self.opened += 1
+        details = stops_from_details(got.get("text"), on_date)
+        if details is None or not _agrees(details, leg, text):
+            self.untimed += 1
+            log.info("    could not time the stop on %s", text[:60])
+            return dataclasses.replace(leg, layover_ok=False), True
+        stops = details[2]
+        return dataclasses.replace(leg, layovers=stops,
+                                   layover_ok=layovers_ok(cfg, stops)), True
+
+
+def _long_enough(cfg, target: Page, out: Leg) -> bool:
+    return (datetime.strptime(target.back_date, "%Y-%m-%d").date()
+            - out.arrive.date()).days >= cfg.min_nights
+
+
+def one_ticket(cfg, target: Page, out: Leg, back: Leg, fare: int, url: str):
+    """A one-ticket trip: the return screen's price for both, bags added."""
+    if not _long_enough(cfg, target, out):
+        return None
+    total = fare + out.bag_fee + back.bag_fee
+    return Combo(out=out, back=back, back_date=target.back_date,
+                 country=cfg.country_of(target.out_city), total=total,
+                 source="round-trip" if target.kind == "rt" else "multi-city",
                  verified=total, verified_urls=(("book", url),))
 
 
-def one_way_legs(cfg, rows, page: Page, sweep_legs) -> list[Leg]:
-    """Every flight on a one-way page, priced with its bag, ready to pair."""
-    legs = []
-    for text, price in _sorted(rows):
-        if _early(text, page.earliest):
+def pick_returns(cfg, judge, target: Page, out: Leg, homes, url, page=None):
+    """On one outbound's return screen: (trip within your rules, trip rules
+    aside) - each the cheapest you could take, landing by your deadline.
+
+    The screen lists each flight home priced as the whole trip, so its price
+    is the trip's. Rows are judged cheapest first and only as far as needed.
+    """
+    within = aside = None
+    for text, fare, bag in _by_cost(cfg, homes):
+        back = judge.leg(text, target.back_date, target.back_city, cfg.origin,
+                         None, bag=bag)
+        if back is None or back.arrive > cfg.arrive_home_by:
             continue
-        bag = _bag_fee(cfg, [text])
-        leg = _leg(cfg, text, page.out_date, page.frm, page.to, sweep_legs,
-                   price=price + bag, bag=bag)
+        if out.layover_ok and not back.layover_ok and page is not None:
+            # worth knowing for sure only if the outbound is within the rules
+            back = judge.leg(text, target.back_date, target.back_city, cfg.origin,
+                             page, bag=bag)
+        trip = one_ticket(cfg, target, out, back, fare, url)
+        if trip is None:
+            return None, None          # the stay is too short on any return
+        if aside is None:
+            aside = trip
+        if not out.layover_ok:
+            break                      # nothing here can be within the rules
+        if back.layover_ok:
+            within = trip
+            break
+    return within, aside
+
+
+def one_way_legs(cfg, rows, target: Page, judge, page=None) -> list[Leg]:
+    """Every flight on a one-way page, priced with its bag, ready to pair.
+
+    The cheapest are opened up for their stop times until a few within the
+    rules are known; beyond that a stop that needs timing is left untimed.
+    """
+    legs, good, opened = [], 0, 0
+    for text, price, bag in _by_cost(cfg, rows):
+        if _early(text, target.earliest):
+            continue
+        leg = judge.leg(text, target.out_date, target.frm, target.to, None,
+                        price=price + bag, bag=bag)
         if leg is None:
             continue
-        if page.to == cfg.origin and leg.arrive > cfg.arrive_home_by:
+        if target.to == cfg.origin and leg.arrive > cfg.arrive_home_by:
             continue
+        if (not leg.layover_ok and page is not None and good < KNOWN_GOOD_ONE_WAY
+                and opened < MAX_OPENED_ONE_WAY and connection_ok(cfg, text)
+                and _needs_daylight(cfg, text)):
+            before = judge.opened
+            leg = judge.leg(text, target.out_date, target.frm, target.to, page,
+                            price=price + bag, bag=bag)
+            opened += judge.opened - before
+        good += leg.layover_ok
         legs.append(leg)
     return legs
 
@@ -327,6 +525,9 @@ _OPEN_EXACT_JS = """(want) => {
   return 'opened';
 }"""
 
+_HAS_ROW_JS = """(want) => Array.from(document.querySelectorAll('li')).some(
+  li => (li.innerText || '').replace(/\\s+/g, ' ').trim() === want)"""
+
 # The second screen has arrived when its rows are flights home: "TAO–SIN",
 # where the first screen's were "SIN–TAO". Round trips title that screen
 # "Returning flights" and multi-city searches "Top flights to Singapore", so
@@ -357,8 +558,10 @@ def _load(page, url, tag, timeout_ms=45_000):
     return page.evaluate(_ROWS_JS)
 
 
-def _second(page, url, first_text, origin, tag):
-    """The flights home offered after choosing ``first_text`` - or None."""
+def _second(page, url, first_text, origin, tag, pick):
+    """Open the return screen behind ``first_text`` and run ``pick`` on its
+    rows while it is still showing - rows are opened up there, if need be.
+    Returns what ``pick`` returned, or None if the screen could not be read."""
     for attempt in (1, 2):
         if page.evaluate(_OPEN_EXACT_JS, first_text) == "opened":
             break
@@ -381,52 +584,88 @@ def _second(page, url, first_text, origin, tag):
         return None
     rows = page.evaluate(_ROWS_JS)
     try:
-        page.go_back(wait_until="domcontentloaded", timeout=20_000)
-        page.wait_for_timeout(1500)
-    except Exception:
-        pass
-    return rows
-
-
-def _one_ticket_page(cfg, page, target, rows, sweep_legs, found):
-    """Open the outbounds worth opening and keep the best trip each way."""
-    choices, floor = first_choices(cfg, rows, target.earliest, sweep_legs, target)
-    opened: dict = {}
-    for text in choices + ([floor] if floor and floor not in choices else []):
+        return pick(rows)
+    finally:
         try:
-            homes = _second(page, target.url, text, cfg.origin, target.label)
+            page.go_back(wait_until="domcontentloaded", timeout=20_000)
+            page.wait_for_timeout(1500)
+        except Exception:
+            pass
+
+
+def _money(combo) -> str:
+    return f"S${combo.price}" if combo is not None else "-"
+
+
+def _one_ticket_page(cfg, page, target, rows, judge, found):
+    """Open outbounds cheapest first until none left could beat what was found.
+
+    An outbound's first-screen price is what it costs with its cheapest return,
+    so no trip on it can cost less (bags only add). Once the next outbound's
+    price is no lower than the trip found - within the rules, and rules aside -
+    every trip on the page has been beaten or matched.
+    """
+    best = loose = None
+    screens = tries = 0
+    left = None
+    for text, price, bag in _by_cost(cfg, rows):
+        if _early(text, target.earliest):
+            continue
+        least = price + bag
+        best_done = best is not None and least >= best.price
+        loose_done = loose is not None and least >= loose.price
+        if best_done and loose_done:
+            break
+        # Whether the outbound is within the rules matters only while the
+        # rules list can still improve - only then is it worth opening up.
+        rules_matter = not best_done
+        if (rules_matter
+                and judge.needs_page(text, target.out_date, cfg.origin, target.out_city)
+                and not page.evaluate(_HAS_ROW_JS, text)):
+            _load(page, target.url, target.label)   # the list as first read
+        out = judge.leg(text, target.out_date, cfg.origin, target.out_city,
+                        page if rules_matter else None, bag=bag)
+        if out is None or not _long_enough(cfg, target, out):
+            continue
+        if loose_done and not out.layover_ok:
+            continue       # it could only help the rules list, and it fails the rules
+        if tries >= MAX_SCREENS:
+            left = least
+            break
+        tries += 1
+        try:
+            picked = _second(page, target.url, text, cfg.origin, target.label,
+                             lambda homes: pick_returns(cfg, judge, target, out, homes,
+                                                        target.url, page))
         except Blocked:
             raise
         except Exception as exc:
             log.info("%-30s return screen failed (%s)", target.label, exc)
-            homes = None
-        if homes:
-            found.screens += 1
-            opened[text] = homes
-
-    best = loose = None
-    for text, homes in opened.items():
-        if text in choices:
-            row, _ = best_return(cfg, homes, target, sweep_legs, rules=True)
-            combo = one_ticket(cfg, target, text, row, sweep_legs, target.url) \
-                if row else None
-            if combo and (best is None or combo.price < best.price):
-                best = combo
-        row, _ = best_return(cfg, homes, target, sweep_legs, rules=False)
-        combo = one_ticket(cfg, target, text, row, sweep_legs, target.url) \
-            if row else None
-        if combo and (loose is None or combo.price < loose.price):
-            loose = combo
+            picked = None
+        if picked is None:
+            continue
+        screens += 1
+        found.screens += 1
+        within, aside = picked
+        log.info("%-36s   out %-8s S$%-5s%s -> within rules %s | rules aside %s",
+                 target.label, departs_at(text), least,
+                 "" if out.layover_ok else " (outside rules)",
+                 _money(within), _money(aside))
+        if within is not None and (best is None or within.price < best.price):
+            best = within
+        if aside is not None and (loose is None or aside.price < loose.price):
+            loose = aside
     if best is not None:
         found.combos.append(best)
     if loose is not None:
         found.any_combos.append(loose)
-    if opened:
+    if screens:
         found.read.add(target.key)
     listed = [p for _, p in _sorted(rows)]
-    log.info("%-30s page from S$%s | within rules S$%s | rules aside S$%s",
-             target.label, listed[0] if listed else "-",
-             best.price if best else "-", loose.price if loose else "-")
+    log.info("%-36s page from S$%s | within rules %s | rules aside %s%s",
+             target.label, listed[0] if listed else "-", _money(best), _money(loose),
+             f" | stopped at {MAX_SCREENS} screens, outbounds from S${left} unopened"
+             if left is not None else "")
 
 
 def run(cfg, result, cities) -> SurveyResult:
@@ -434,8 +673,10 @@ def run(cfg, result, cities) -> SurveyResult:
     from playwright.sync_api import sync_playwright
 
     started = time.monotonic()
+    budget = BUDGET_MIN if getattr(cfg, "at_home", False) else BUDGET_MIN_GITHUB
     found = SurveyResult()
-    sweep_legs = list(getattr(result, "legs_out", [])) + list(getattr(result, "legs_in", []))
+    judge = Judge(cfg, list(getattr(result, "legs_out", []))
+                  + list(getattr(result, "legs_in", [])))
     pages = plan(cfg, cities)
     log.info("survey: %d pages for %s", len(pages),
              ", ".join(cfg.city_name(c) for c in cities))
@@ -448,7 +689,12 @@ def run(cfg, result, cities) -> SurveyResult:
                                           viewport={"width": 1400, "height": 1000})
             page = context.new_page()
             _plain_name(context, page)
-            for target in pages:
+            for index, target in enumerate(pages):
+                if time.monotonic() - started > budget * 60:
+                    found.unread = [p.label for p in pages[index:]]
+                    log.warning("survey: out of time after %d min - %d page(s) not "
+                                "read", budget, len(found.unread))
+                    break
                 try:
                     rows = _load(page, target.url, target.label)
                     if not rows:
@@ -456,14 +702,17 @@ def run(cfg, result, cities) -> SurveyResult:
                         continue
                     found.pages += 1
                     if target.kind != "ow":
-                        _one_ticket_page(cfg, page, target, rows, sweep_legs, found)
+                        _one_ticket_page(cfg, page, target, rows, judge, found)
                         continue
-                    legs = one_way_legs(cfg, rows, target, sweep_legs)
+                    legs = one_way_legs(cfg, rows, target, judge, page)
                     (backs if target.to == cfg.origin else outs).extend(legs)
                     urls[target.key] = target.url
                     found.read.add(target.key)
-                    log.info("%-30s %d flights, cheapest S$%s", target.label,
-                             len(legs), min((l.price for l in legs), default="-"))
+                    good = [l.price for l in legs if l.layover_ok]
+                    log.info("%-36s %d flights, cheapest S$%s, within rules S$%s",
+                             target.label, len(legs),
+                             min((l.price for l in legs), default="-"),
+                             min(good, default="-"))
                 except Blocked:
                     log.error("%-30s Google showed a bot check - stopping the "
                               "survey here", target.label)
@@ -480,7 +729,9 @@ def run(cfg, result, cities) -> SurveyResult:
         found.combos.extend(comfy)
         found.any_combos.extend(loose)
     found.seconds = time.monotonic() - started
-    log.info("survey: %d pages and %d return screens in %.0f min%s", found.pages,
-             found.screens, found.seconds / 60,
+    found.opened_up, found.untimed = judge.opened, judge.untimed
+    log.info("survey: %d pages and %d return screens in %.0f min, %d rows opened "
+             "up for their stop times (%d unreadable)%s", found.pages, found.screens,
+             found.seconds / 60, found.opened_up, found.untimed,
              " - stopped at a bot check" if found.blocked else "")
     return found
