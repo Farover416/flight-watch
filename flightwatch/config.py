@@ -138,6 +138,19 @@ class Config:
     proxy: str | None = None
     data_dir: Path = ROOT / "data"
 
+    # Where this run is happening: "github" for the scheduled runs, "home" for
+    # the ones on your laptop. It matters because Google does not show both
+    # the same fares - GitHub's servers only ever get the airlines' own, while
+    # a home connection in Singapore also gets the agency and two-ticket ones
+    # (measured 23 Sep 2026: S$749 against S$497 for the same search). So the
+    # two are filed apart and labelled, rather than mixed into one line that
+    # would jump between them every run.
+    source: str = "github"
+
+    @property
+    def at_home(self) -> bool:
+        return self.source == "home"
+
     def _tier(self, name: str) -> list[str]:
         out: list[str] = []
         for tiers in self.destinations.values():
@@ -347,5 +360,7 @@ def load(path: str | Path | None = None) -> Config:
 
     # A proxy is only needed if the scraper starts getting blocked.
     cfg.proxy = os.environ.get("FLIGHTWATCH_PROXY") or None
+    where = os.environ.get("FLIGHTWATCH_SOURCE", "").strip().lower()
+    cfg.source = "home" if where in ("home", "laptop") else "github"
     cfg.data_dir.mkdir(parents=True, exist_ok=True)
     return cfg

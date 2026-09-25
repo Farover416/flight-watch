@@ -217,7 +217,8 @@ def format_verified(cfg, verified: dict) -> str:
     should not be quietly mixed in with the parsed ones: what a plain fetch
     sees is the airline's fare on a short list; this is what you would see.
     """
-    lines = ["<b>Checked in a real browser</b>", ""]
+    lines = [("<b>Checked in a browser on your laptop</b>" if cfg.at_home
+              else "<b>Checked in a browser on GitHub</b>"), ""]
     for found in sorted(verified.values(), key=lambda v: v["total"]):
         # Say so when part of the total is our own bag estimate rather than
         # something Google quoted, because the rows below will not add up.
@@ -255,9 +256,16 @@ def format_verified(cfg, verified: dict) -> str:
         if not other or (cheapest and cheapest["price"] < other["price"]):
             elsewhere(cheapest, "cheapest on the page, rules aside")
         lines.append("")
+    seen = ("Google's own Cheapest view as your laptop gets it, agency and "
+            "two-ticket fares included — the number you see on your phone. "
+            if cfg.at_home else
+            "Google's own Cheapest view as GitHub's servers get it: the "
+            "airlines' own fares only. Google shows agency and two-ticket "
+            "fares to home and phone connections, not to data centres, so "
+            "your phone may well see lower — the laptop checks cover that "
+            "when it is on. ")
     lines.append(
-        "<i>Google's own Cheapest view, agency prices included — the number a "
-        "person sees on the page. Each price is read off the row for that "
+        f"<i>{seen}Each price is read off the row for that "
         "exact flight, so the number and the itinerary beside it belong "
         "together, and the same checked-bag estimate is added as everywhere "
         "else — Google will not price a bag, and a total without one is not "
@@ -361,13 +369,19 @@ def format_deals(cfg, items, heading: str) -> str:
     budget = ("No budget set - watching for new lows." if cfg.max_total is None
               else f"Budget S${cfg.max_total}.")
     seats = "" if cfg.adults == 1 else f" Prices are for {cfg.adults} adults."
+    where = (
+        "Checked from your laptop: prices marked checked were read off "
+        "Google's page with agency fares included; the rest are the airline's "
+        "own fare from the search feed, so treat those as a ceiling."
+        if cfg.at_home else
+        "Checked from GitHub, which Google only ever shows the airlines' own "
+        "fares - a phone or laptop in Singapore also gets agency and "
+        "two-ticket fares, often lower. Treat every number here as a ceiling "
+        "and open the flight before judging it."
+    )
     lines.append(
         f"<i>Totals include a checked bag: free on carriers that bundle one, "
         f"otherwise our own estimate (Google will not price it). "
-        f"{budget}{seats} "
-        "This is the airline's own fare. Google lists agency prices under "
-        '"Booking options" once you open a flight, and those have come in '
-        "several percent lower - so treat every number here as a ceiling and "
-        "open the flight before judging it.</i>"
+        f"{budget}{seats} {where}</i>"
     )
     return "\n".join(lines).rstrip()

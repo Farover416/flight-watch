@@ -354,9 +354,23 @@ const city = (code) => CITIES[code] || code;
 
 /* ── data ───────────────────────────────────────────────────────────── */
 
-let RUNS = [];      // [{t: Date, rows: [...]}]
-let SERIES = [];    // [{key, sig, ok, label, city, points: Map(runIndex -> row)}]
+let RUNS = [];      // [{t: Date, src: "cloud" | "home", rows: [...]}]
+let SERIES = [];    // [{key, sig, ok, src, label, city, points: Map(runIndex -> row)}]
 let LATEST = {};    // the newest run's exact Google Flights links, by signature
+let LAST = {};      // the newest run's index, per source
+
+/* Two places check prices, and Google does not show them the same fares.
+   GitHub's servers get only the airlines' own; your laptop, on a home
+   connection, also gets the agency and two-ticket ones - S$497 against
+   S$749 for the same search, the same minute. So each keeps its own files
+   (the laptop's under home/) and its own lines here: one line jumping
+   between the two every run would be a chart of where it ran, not of what
+   the fare did. */
+const SOURCES = [["cloud", ""], ["home", "home/"]];
+const SOURCE_NAME = { cloud: "GitHub", home: "your laptop" };
+// A source that has not run for this long cannot headline: a laptop left
+// shut for a weekend should not keep quoting Friday's fare as "right now".
+const LIVE_HOURS = 12;
 let loadedMonths = [];
 let detailKey = null;
 let selected = new Set();
@@ -382,25 +396,58 @@ function monthsToTry() {
 }
 
 async function loadSeries(months) {
-  const files = await Promise.all((months || monthsToTry()).map(async (m) => {
-    try {
-      const res = await fetch(dataUrl(`series/${m}.jsonl`), { cache: "no-store" });
-      if (!res.ok) return "";
-      return await res.text();
-    } catch { return ""; }
-  }));
+  const want = months || monthsToTry();
+  const files = await Promise.all(SOURCES.flatMap(([src, sub]) =>
+    want.map(async (m) => {
+      try {
+        const res = await fetch(dataUrl(`${sub}series/${m}.jsonl`), { cache: "no-store" });
+        if (!res.ok) return [src, ""];
+        return [src, await res.text()];
+      } catch { return [src, ""]; }
+    })));
   const runs = [];
-  for (const text of files) {
+  for (const [src, text] of files) {
     for (const line of text.split("\n")) {
       if (!line.trim()) continue;
       try {
         const d = JSON.parse(line);
-        runs.push({ t: new Date(d.ts), rows: d.rows || [] });
+        runs.push({ t: new Date(d.ts), src, rows: d.rows || [] });
       } catch { /* a half-written line is not worth losing the file over */ }
     }
   }
   runs.sort((a, b) => a.t - b.t);
   return runs;
+}
+
+/* Everything that is derived from the runs, rebuilt in one place so a reload
+   can never leave one of them describing the previous data. */
+async function reload(months) {
+  RUNS = await loadSeries(months);
+  LAST = {};
+  RUNS.forEach((run, i) => { LAST[run.src] = i; });
+  SERIES = buildSeries(RUNS);
+}
+
+/* Both sides' newest links, the newer winning where they overlap. */
+async function loadLatest() {
+  const read = async (path) => {
+    try {
+      const res = await fetch(dataUrl(path), { cache: "no-store" });
+      return res.ok ? await res.json() : null;
+    } catch { return null; }
+  };
+  const found = (await Promise.all(SOURCES.map(([, sub]) => read(`${sub}latest.json`))))
+    .filter(Boolean).sort((a, b) => String(a.ts).localeCompare(String(b.ts)));
+  if (found.length) LATEST = { links: Object.assign({}, ...found.map((f) => f.links || {})) };
+}
+
+const whenText = (t) => t.toLocaleString(undefined,
+  { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" });
+
+/* Has this source run recently enough to speak for "right now"? */
+function sourceLive(src) {
+  if (LAST[src] == null || !RUNS.length) return false;
+  return RUNS[RUNS.length - 1].t - RUNS[LAST[src]].t <= LIVE_HOURS * 3600e3;
 }
 
 /* "TAO/BJS/2026-12-19/2026-12-28/one-way pair" */
@@ -436,11 +483,12 @@ function buildSeries(runs) {
   runs.forEach((run, i) => {
     for (const row of run.rows) {
       const [sig, total, ok] = row;
-      const key = `${sig}|${ok}`;
+      const key = `${sig}|${ok}|${run.src}`;
       if (!map.has(key)) {
         const p = parseSig(sig);
         map.set(key, {
-          key, sig, ok: !!ok, label: labelFor(sig, ok),
+          key, sig, ok: !!ok, src: run.src,
+          label: labelFor(sig, ok) + (run.src === "home" ? " · laptop" : ""),
           city: cityOf(p.to),
           openJaw: isOpenJaw(sig), points: new Map(),
         });
@@ -469,7 +517,7 @@ const lastPrice = (s) => {
    since those were cheap, a retired city headlined the page indefinitely
    while the run that just happened was ignored. History stays on the chart;
    it just cannot be the headline. */
-const isFresh = (s) => RUNS.length > 0 && s.points.has(RUNS.length - 1);
+const isFresh = (s) => sourceLive(s.src) && s.points.has(LAST[s.src]);
 
 function freshFirst(list) {
   const fresh = list.filter(isFresh);
@@ -510,6 +558,7 @@ function renderHero() {
     ${isFresh(cheapest) ? "" : `<div class="hero-meta">Last seen
        ${RUNS[idx[idx.length - 1]].t.toLocaleDateString(undefined,
          { day: "numeric", month: "short" })}, not in the newest run</div>`}
+    <div class="hero-meta">${checkedWhere(cheapest)}</div>
     <div class="hero-meta">${wasRead(lastRow)
       ? `Read off the page in a browser${lastRow[6] < lastRow[1]
           ? ` — the feed quoted S$${lastRow[1]}` : ""}`
@@ -521,6 +570,18 @@ function renderHero() {
            since first seen on ${RUNS[idx[0]].t.toLocaleDateString(undefined,
              { day: "numeric", month: "short" })}`}
     </div>`;
+}
+
+/* Which side read this price, and what that side can see. */
+function checkedWhere(s) {
+  const at = LAST[s.src] == null ? "" : `, ${whenText(RUNS[LAST[s.src]].t)}`;
+  if (s.src === "home") {
+    return `Checked from your laptop${at} — agency and two-ticket fares included`;
+  }
+  const laptop = LAST.home == null
+    ? "No laptop checks yet."
+    : `Your laptop last checked ${whenText(RUNS[LAST.home].t)}.`;
+  return `Checked on GitHub${at} — the airlines' own fares only. ${laptop}`;
 }
 
 /* ── chart ──────────────────────────────────────────────────────────── */
@@ -787,6 +848,8 @@ function segments(s, pick = priceAt) {
   const out = [];
   let run = [];
   for (let i = 0; i < RUNS.length; i++) {
+    // The other side's runs are not gaps in this line - it was never asked.
+    if (RUNS[i].src !== s.src) continue;
     if (s.points.has(i)) run.push([i, pick(s.points.get(i))]);
     else if (run.length) { out.push(run); run = []; }
   }
@@ -886,8 +949,7 @@ function showAt(i, cx, cy) {
   if (!rows.length) { hideTip(); return; }
   rows.sort((a, b) => priceAt(a.row) - priceAt(b.row));
   tip.innerHTML =
-    `<div class="t-h">${RUNS[i].t.toLocaleString(undefined,
-      { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}</div>` +
+    `<div class="t-h">${whenText(RUNS[i].t)} · ${SOURCE_NAME[RUNS[i].src]}</div>` +
     rows.map(({ s, row, n }) => `
       <div class="t-r">
         <span class="t-sw" style="background:var(${SWATCH[n]})"></span>
@@ -917,7 +979,7 @@ function openDetail(key) {
   const idx = [...s.points.keys()].sort((a, b) => a - b);
   const last = idx[idx.length - 1];
   const row = s.points.get(last);
-  const stale = last !== RUNS.length - 1;
+  const stale = last !== LAST[s.src];
   const read = wasRead(row);
 
   const legLine = (label, fp) => fp ? `
@@ -937,6 +999,7 @@ function openDetail(key) {
                — not in the newest run`
             : `Seen in ${idx.length} run${idx.length === 1 ? "" : "s"}`}
         </div>
+        <div class="d-when">${checkedWhere(s)}</div>
       </div>
       <div class="row" style="gap:6px">
         <div class="d-price">S$${priceAt(row)}</div>
@@ -1023,12 +1086,12 @@ function renderLegend(drawn, context) {
 
 function renderTable() {
   const vis = visibleSeries();
-  const last = RUNS.length - 1;
   const rows = vis.map((s) => {
     const idx = [...s.points.keys()].sort((a, b) => a - b);
     const cur = s.points.get(idx[idx.length - 1]);
     const first = priceAt(s.points.get(idx[0]));
-    return { s, cur, first, seen: idx.length, fresh: idx[idx.length - 1] === last };
+    return { s, cur, first, seen: idx.length,
+             fresh: idx[idx.length - 1] === LAST[s.src] };
   });
   $("table-wrap").innerHTML = `
     <table>
@@ -1106,10 +1169,10 @@ function draw() {
     else { detailKey = null; $("detail").hidden = true; }
   }
   if ($("t-table").getAttribute("aria-pressed") === "true") renderTable();
-  const last = RUNS[RUNS.length - 1];
+  const lastOf = (src) => LAST[src] == null ? "not yet" : whenText(RUNS[LAST[src]].t);
   $("foot").textContent = RUNS.length
-    ? `${RUNS.length} runs recorded · last ${last.t.toLocaleString(undefined,
-        { day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" })}`
+    ? `${RUNS.length} runs recorded · last on GitHub ${lastOf("cloud")}`
+      + ` · last from your laptop ${lastOf("home")}`
       + (detailKey ? "" : " · tap any line to open that trip and its check links")
     : "";
 }
@@ -1246,12 +1309,8 @@ async function poll() {
     $("run").disabled = false;
     if (run.conclusion === "success") {
       say(`Finished. Reloading the chart…`);
-      try {
-        const r = await fetch("data/latest.json", { cache: "no-store" });
-        if (r.ok) LATEST = await r.json();
-      } catch { /* keep the old links rather than none */ }
-      RUNS = await loadSeries(loadedMonths);
-      SERIES = buildSeries(RUNS);
+      await loadLatest();   // keeps the old links if this fails
+      await reload(loadedMonths);
       selected.clear();
       draw();
       say(`Done — Telegram has the details.
@@ -1309,16 +1368,13 @@ renderRunPanel();
    megabytes. Load the recent months, draw, and leave the rest behind a
    button rather than making a phone download the lot to see this week. */
 async function boot() {
-  try {
-    const res = await fetch(dataUrl("latest.json"), { cache: "no-store" });
-    if (res.ok) LATEST = await res.json();
-  } catch { /* links degrade to the comparison sites; nothing else cares */ }
+  // Links degrade to the comparison sites without this; nothing else cares.
+  await loadLatest();
 
   const all = monthsToTry();
   const recent = all.slice(-2);
-  RUNS = await loadSeries(recent);
+  await reload(recent);
   loadedMonths = recent;
-  SERIES = buildSeries(RUNS);
   draw();
 
   const older = all.filter((m) => !recent.includes(m));
@@ -1329,9 +1385,8 @@ async function boot() {
     b.textContent = `Load ${older.length} earlier month${older.length > 1 ? "s" : ""}`;
     b.onclick = async () => {
       b.disabled = true; b.textContent = "Loading…";
-      RUNS = await loadSeries(all);
+      await reload(all);
       loadedMonths = all;
-      SERIES = buildSeries(RUNS);
       selected.clear();
       b.remove();
       draw();

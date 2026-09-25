@@ -541,12 +541,17 @@ def _launch(pw):
     Singapore address or a US one. That, not where the server is, is why the
     watcher's cheapest never matched the page.
 
-    Google Chrome where it is installed (GitHub's runners have it), else
-    Playwright's own full Chromium, and the shell only as a last resort. The
-    log says which one ran.
+    Google Chrome where it is installed (GitHub's runners have it), then
+    Microsoft Edge (every Windows laptop has it), then Playwright's own full
+    Chromium, and the shell only as a last resort. The log says which ran.
+
+    None of this gets GitHub the cheaper fares: every browser tried there,
+    hidden or with a window, got the airline-only list, and watching the page
+    for three minutes changed nothing. That part is the connection, which is
+    why the laptop runs exist. See config.Config.source.
     """
     args = ["--disable-blink-features=AutomationControlled"]
-    for channel in ("chrome", "chromium"):
+    for channel in ("chrome", "msedge", "chromium"):
         try:
             browser = pw.chromium.launch(channel=channel, headless=True,
                                          args=args)

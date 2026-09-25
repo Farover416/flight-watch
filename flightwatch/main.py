@@ -274,6 +274,8 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         return 0
 
     where = focus or cfg.trip_name
+    if cfg.at_home:
+        where += " · from your laptop"
     items = present.prepare(cfg, under_budget or result.combos)
     if cfg.max_total is None:
         heading = f"Cheapest {len(items)} right now - {where}"
@@ -344,6 +346,17 @@ def main(argv: list[str] | None = None) -> int:
             return 2
         log.info("watching %s - %d adult(s), prices filed under %s",
                  cfg.trip_name, cfg.adults, cfg.data_dir.name)
+
+    if cfg.at_home:
+        # The laptop's prices live beside GitHub's, never in the same files:
+        # data/home for December, data/taipei/home for Taipei. Each side only
+        # ever writes its own, so the two can save at the same moment without
+        # a clash, and each keeps its own record of what it has alerted. The
+        # Telegram chat above stays shared - it is the same chat either way.
+        cfg.data_dir = cfg.data_dir / "home"
+        cfg.data_dir.mkdir(parents=True, exist_ok=True)
+        log.info("checking from this laptop - prices filed under %s",
+                 cfg.data_dir)
 
     store = Store(cfg.data_dir, cfg)
     wanted = [t for t in args.only.split(",") if t.strip()]
