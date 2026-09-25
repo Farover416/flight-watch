@@ -42,7 +42,7 @@ TASK = "Flight Watch laptop check"
 
 # What the scheduled GitHub runs check when nobody asked for anything else -
 # ONLY in .github/workflows/check.yml. Change both together.
-DECEMBER_ONLY = "Beijing,Qingdao,Weihai"
+DECEMBER_ONLY = "Beijing,Qingdao"
 # GitHub checks Taipei four times a day, and nothing two months out moves
 # faster than that; checking it every laptop run would only cost time.
 TAIPEI_EVERY = dt.timedelta(hours=6)
@@ -51,7 +51,9 @@ TAIPEI_EVERY = dt.timedelta(hours=6)
 OWN = ("data/home", "data/taipei/home")
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-WATCH_TIMEOUT = 40 * 60
+# December now opens every search page (flightwatch/survey.py): about forty
+# minutes on its own, and Taipei can follow it in the same check.
+WATCH_TIMEOUT = 100 * 60
 
 
 def _now() -> str:
@@ -254,8 +256,8 @@ def task_xml(command: str, arguments: str, workdir: str, user: str | None,
 
     Runs as you, only while you are signed in - so no password is stored and
     nothing runs on a locked-away account. Allowed on battery, skipped with
-    no network, never wakes the laptop, and stopped if one ever runs past 50
-    minutes (a normal check takes 5 to 15).
+    no network, never wakes the laptop, and stopped if one ever runs past
+    110 minutes (a normal check takes 40 to 60, opening every search page).
     """
     who = f"\n      <UserId>{escape(user)}</UserId>" if user else ""
     return f"""<?xml version="1.0" encoding="UTF-16"?>
@@ -295,7 +297,7 @@ def task_xml(command: str, arguments: str, workdir: str, user: str | None,
     <Hidden>false</Hidden>
     <RunOnlyIfIdle>false</RunOnlyIfIdle>
     <WakeToRun>false</WakeToRun>
-    <ExecutionTimeLimit>PT50M</ExecutionTimeLimit>
+    <ExecutionTimeLimit>PT110M</ExecutionTimeLimit>
     <Priority>7</Priority>
   </Settings>
   <Actions Context="Author">

@@ -174,6 +174,8 @@ def leg_line(cfg, leg) -> str:
     else:
         stops = "direct" if leg.stops == 0 else f"{leg.stops} stop"
     bag = f" +S${leg.bag_fee} bag" if leg.bag_fee else ""
+    if getattr(leg, "ticketing", ""):
+        bag += f", {leg.ticketing}"
     return (
         f"{esc(cfg.city_name(leg.from_airport))} → {esc(cfg.city_name(leg.to_airport))}"
         f"  {leg.depart:%d %b %H:%M} → {leg.arrive:%d %b %H:%M}"
@@ -274,6 +276,77 @@ def format_verified(cfg, verified: dict) -> str:
     return "\n".join(lines).rstrip()
 
 
+def format_survey(cfg, found) -> str:
+    """The cheapest trip of every kind, from a run that opened every page.
+
+    One line per kind - each city as a return trip, and each open jaw both
+    ways round, as one ticket and as two - because "cheapest overall" hides
+    exactly the comparison you asked to see: what flying into Beijing and home
+    from Qingdao costs next to the plain return, on the same run, read the
+    same way.
+    """
+    where = "on your laptop" if cfg.at_home else "on GitHub"
+    minutes = max(1, round(found.seconds / 60))
+    lines = [f"<b>Every search checked in a browser {where}</b>",
+             f"<i>{found.pages} pages and {found.screens} return screens in "
+             f"{minutes} min"
+             + (" - stopped early: Google showed a bot check" if found.blocked
+                else "") + "</i>", ""]
+
+    def name(into, home):
+        if into == home:
+            return f"{cfg.city_name(into)} return"
+        return f"{cfg.city_name(into)} in, {cfg.city_name(home)} out"
+
+    best = found.best()
+    order = sorted(best.items(),
+                   key=lambda kv: (kv[0][0], kv[0][1] != kv[0][2], kv[1].price))
+    heading = None
+    for (tickets, into, home), combo in order:
+        now = "One ticket" if tickets == 1 else "Two tickets"
+        if now != heading:
+            if heading is not None:
+                lines.append("")
+            lines.append(f"<b>{now}</b>")
+            heading = now
+        links = " · ".join(f'<a href="{esc(url)}">{esc(label)}</a>'
+                           for label, url in combo.verified_urls)
+        lines.append(
+            f"<b>S${combo.price}</b> {esc(name(into, home))} · "
+            f"{esc(present.day_label(combo.out.date))} → "
+            f"{esc(present.day_label(combo.back_date))}  {links}")
+        lines.append(f"  ✈ {leg_line(cfg, combo.out)}")
+        if combo.back is not None:
+            lines.append(f"  ↩ {leg_line(cfg, combo.back)}")
+    if not best:
+        lines.append("Nothing on any page passed your rules.")
+
+    floor = found.floor()
+    if floor is not None and (not best or floor.price < min(c.price for c in best.values())):
+        lines.append("")
+        lines.append(
+            f"<i>Cheapest on any page with the layover rules off: S${floor.price} — "
+            f"{esc(name(floor.out.search_to, floor.back_city))}, "
+            f"{esc(present.day_label(floor.out.date))} → "
+            f"{esc(present.day_label(floor.back_date))}, "
+            f"{esc(floor.out.airline_label)}</i>")
+    if found.failed:
+        shown = ", ".join(found.failed[:6]) + ("…" if len(found.failed) > 6 else "")
+        lines.append(f"<i>Could not read {len(found.failed)}: {esc(shown)}</i>")
+    lines.append("")
+    lines.append(
+        "<i>" + ("Google's own Cheapest view as your laptop gets it, agency and "
+                 "two-ticket fares included. " if cfg.at_home else
+                 "Google's own Cheapest view as GitHub's servers get it: the "
+                 "airlines' own fares only - your laptop's checks see the agency "
+                 "ones. ")
+        + "One-ticket prices are the return you would actually take: each "
+        "outbound's return screen was opened and the cheapest flight home "
+        "within your rules and deadline read off it. Checked bags added as "
+        "everywhere else.</i>")
+    return "\n".join(lines).rstrip()
+
+
 def format_unrestricted(cfg, combos, limit: int) -> str:
     """The cheapest trips with the connection rules switched off.
 
@@ -363,6 +436,10 @@ def format_deals(cfg, items, heading: str) -> str:
         lines.append(
             "<i>“one-way pair” means two separate tickets — cheapest on low-cost "
             "carriers, but a delay on one leg is not protected by the other.</i>"
+        )
+    if any(c.source == "multi-city" for c, _ in items):
+        lines.append(
+            "<i>“multi-city” is one ticket: into one city, home from the other.</i>"
         )
     # Whose money, and how many seats. A total for two beside a budget for
     # one reads as a bargain, so both are said out loud.

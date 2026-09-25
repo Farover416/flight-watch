@@ -110,6 +110,10 @@ trips:
       # place would quietly inflate every fare by the estimate for a bag
       # nobody is buying.
       checked_bag_fees: {}
+      # A window has too many date pairs to open every one, so this trip
+      # opens the twelve its search ranks cheapest instead of six.
+      survey: false
+      verify_top: 12
       # A window search never uses the return-by deadline, but a date this
       # far out keeps it from quietly filtering anything if it ever does.
       arrive_home_by: "2027-01-02 23:59"
@@ -235,6 +239,16 @@ unrestricted_top: 5
 # Set verify_top to 0 to switch it off.
 verify_top: 6
 verify_rows: 4
+# ...except that six is not enough. The feed only knows the airlines' own
+# fares, so the six it ranks cheapest need not be where the agency fares are:
+# on Qingdao 19-28 Dec the feed put the 8:20 PM Cathay flight at S$976 and
+# the page sold it for S$497, a search the six never included. So for this
+# trip every search is opened - each city as a return trip, each open jaw
+# both ways as one ticket and as two - and each one-ticket search's return
+# screens are read for a return you would actually take. About 34 pages and
+# forty minutes a run for two cities. The trips below (a date window, far
+# too many pairs to open) keep verify_top. See flightwatch/survey.py.
+survey: true
 
 # --- layovers ----------------------------------------------------------------
 # A connection is worth having only if it is either quick, or long enough in

@@ -74,6 +74,11 @@ class Leg:
     # no Layover objects: inventing a start time would make every "hours out
     # in the city" figure derived from it quietly wrong.
     connection_note: str = ""
+    # "self transfer" or "separate tickets" when the page sells the flight
+    # that way: a connection you collect your bag at and check in again for,
+    # or two tickets Google books together. Same price either way, but not
+    # the same trip if the first flight runs late, so it is always said.
+    ticketing: str = ""
 
     @property
     def date(self) -> str:
@@ -174,7 +179,9 @@ class Combo:
 
         A one-way pair is two separate tickets, and searching it as one
         multi-city trip usually prices higher, so it gets one link per leg.
-        A round-trip quote is a single ticket and gets a single link.
+        A round-trip quote is a single ticket and gets a single link, and so
+        does a multi-city one - one ticket into one city and home from the
+        other - whether or not its return was read off the page.
         """
         from .search import build_query  # local import avoids a cycle
 
@@ -182,7 +189,12 @@ class Combo:
             query = build_query(cfg, legs, trip=trip)
             return f"{GOOGLE_FLIGHTS}?{urllib.parse.urlencode(query.params())}"
 
-        if self.back is not None:
+        if self.source == "multi-city" and self.back is not None:
+            return [("book", link(
+                [(self.out.search_from, self.out.search_to, self.out.date, None),
+                 (self.back.search_from, self.back.search_to, self.back_date, None)],
+                "multi-city"))]
+        if self.back is not None and self.source != "round-trip":
             return [
                 (
                     "outbound",
@@ -284,6 +296,12 @@ class SweepResult:
     outbound_legs: int = 0
     inbound_legs: int = 0
     errors: list[str] = field(default_factory=list)
+    # Every leg the feed returned, rules or not. The survey matches the rows
+    # it reads against these: the feed knows when a connection happens, which
+    # a page row never says, and the daylight half of the layover rules
+    # needs exactly that.
+    legs_out: list = field(default_factory=list)
+    legs_in: list = field(default_factory=list)
 
     @property
     def blind_searches(self) -> int:

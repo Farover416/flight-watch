@@ -244,8 +244,9 @@ def _flight(leg) -> list | None:
     """
     if leg is None:
         return None
+    sold = f" ({leg.ticketing})" if getattr(leg, "ticketing", "") else ""
     return [
-        ", ".join(leg.airlines) if leg.airlines else "?",
+        (", ".join(leg.airlines) if leg.airlines else "?") + sold,
         leg.depart.isoformat(timespec="minutes"),
         leg.arrive.isoformat(timespec="minutes"),
         leg.stops,

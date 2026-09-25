@@ -71,7 +71,7 @@ def for_combo(combo, adults: int = 1) -> list[tuple[str, list[tuple[str, str]]]]
     A one-way pair is two tickets bought separately, so each leg gets its own
     set - a round-trip search on those sites would price a different product.
     """
-    if combo.back is None:
+    if combo.back is None or combo.source == "round-trip":
         frm, to = combo.out.search_from, combo.out.search_to
         out, back = combo.out.date, combo.back_date
         return [(

@@ -7,11 +7,11 @@ import logging
 import sys
 from datetime import datetime
 
-from . import combine, config, present, search, verify
+from . import combine, config, present, search, survey, verify
 from .models import Leg, SweepResult
 from . import sales as sales_feed
 from .notify import (NoChatYet, Telegram, format_deals, format_sales,
-                     format_unrestricted, format_verified)
+                     format_survey, format_unrestricted, format_verified)
 from .search import search_one_way, search_round_trip
 from .state import Store
 
@@ -71,6 +71,7 @@ def sweep(
 
     result.outbound_legs = len(outbound)
     result.inbound_legs = len(inbound)
+    result.legs_out, result.legs_in = list(outbound), list(inbound)
     result.legs_found = len(outbound) + len(inbound)
     log.info("legs: %d outbound, %d return", len(outbound), len(inbound))
 
@@ -135,6 +136,61 @@ def sweep(
     return result
 
 
+# After Google answers with a bot check, leave the full survey alone for this
+# long and fall back to opening only the few cheapest pages. Pressing on
+# would only teach it to block this connection for longer - and at home that
+# connection is also the one you browse on.
+SURVEY_REST_HOURS = 6
+# Two cities is 34 pages and about forty minutes. A hand-picked check of
+# many more would run for hours, so past this it opens only the cheapest few.
+SURVEY_MAX_PAGES = 40
+
+
+def _survey(cfg, result: SweepResult, store, cities):
+    """Open every search page, and let what they show replace the feed's guesses.
+
+    Trips on a page the survey read are priced from that page; trips whose
+    page could not be read keep the feed's price rather than vanishing. The
+    survey's own trips - one ticket and two, open jaws included - join the
+    list whether or not the feed ever returned them.
+    """
+    if not verify.available():
+        log.info("no browser available - skipping the survey")
+        return None
+    rested = store.health.get("survey_blocked_at")
+    if rested:
+        try:
+            since = datetime.utcnow() - datetime.fromisoformat(rested.rstrip("Z"))
+        except ValueError:
+            since = None
+        if since is not None and since.total_seconds() < SURVEY_REST_HOURS * 3600:
+            log.warning("Google showed a bot check %.1f h ago - opening only the "
+                        "cheapest few pages this time", since.total_seconds() / 3600)
+            return None
+    planned = len(survey.plan(cfg, cities))
+    if planned > SURVEY_MAX_PAGES:
+        log.info("%d pages is too many to open them all - opening the cheapest "
+                 "%d trips instead", planned, cfg.verify_top)
+        return None
+    try:
+        found = survey.run(cfg, result, cities)
+    except Exception as exc:
+        log.warning("survey unavailable (%s)", exc)
+        return None
+    if found.blocked:
+        store.health["survey_blocked_at"] = (
+            datetime.utcnow().isoformat(timespec="seconds") + "Z")
+    if not found.pages:
+        return None
+    keep = [c for c in result.combos if not survey.covered(c, found.read)]
+    keep_any = [c for c in result.any_combos if not survey.covered(c, found.read)]
+    result.combos = combine.merge(cfg, keep, found.combos)
+    result.any_combos = combine.merge(cfg, keep_any, found.any_combos)
+    log.info("survey: %d trips within the rules, cheapest S$%s", len(found.combos),
+             min((c.price for c in found.combos), default="-"))
+    return found
+
+
 def _verify(cfg, result: SweepResult) -> dict:
     """Read the real page for the top few trips and fold the prices in.
 
@@ -192,7 +248,7 @@ def _verify(cfg, result: SweepResult) -> dict:
 
 
 def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
-           dry_run: bool, focus: str | None = None) -> int:
+           dry_run: bool, focus: str | None = None, cities=None) -> int:
     def deliver(text: str) -> None:
         plain = (text.replace("<b>", "").replace("</b>", "")
                  .replace("<i>", "").replace("</i>", ""))
@@ -236,7 +292,10 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
     # BEFORE deciding anything, because these are the numbers to decide on.
     # Reading them afterwards, as this used to, meant every alert, every
     # budget test and every new low ran on the number we trust least.
-    verified = _verify(cfg, result)
+    surveyed = None
+    if cfg.survey and cities and (cfg.trip is None or cfg.trip.window is None):
+        surveyed = _survey(cfg, result, store, cities)
+    verified = {} if surveyed is not None else _verify(cfg, result)
 
     # Every run reports what it actually found. Suppressing fares because an
     # earlier run already mentioned them hid the cheapest ones and surfaced
@@ -296,7 +355,9 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
     if result.any_combos:
         deliver(format_unrestricted(cfg, result.any_combos, cfg.unrestricted_top))
 
-    if verified:
+    if surveyed is not None:
+        deliver(format_survey(cfg, surveyed))
+    elif verified:
         deliver(format_verified(cfg, verified))
     for combo in under_budget:
         store.record_alert(combo)
@@ -395,6 +456,8 @@ def main(argv: list[str] | None = None) -> int:
 
         result = sweep(cfg, only=only or None, destinations=destinations,
                        round_trip=not args.no_round_trip)
+        return report(cfg, result, store, telegram, dry_run=args.dry_run,
+                      focus=focus, cities=only or destinations)
     return report(cfg, result, store, telegram,
                   dry_run=args.dry_run, focus=focus)
 

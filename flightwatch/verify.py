@@ -37,7 +37,7 @@ _PRICE = re.compile(r"SGD\s?([\d,]+)")
 # The row text carries emissions chatter that means nothing to a fare decision.
 _NOISE = re.compile(
     r"\s*\d+ kg CO2e|\s*[-+]\d+% emissions|\s*Avg emissions"
-    r"|\s*Avoids as much CO2e.*$|\s*round trip$"
+    r"|\s*Avoids as much CO2e.*$|\s*round trip$|\s*entire trip$"
 )
 _BLOCKED = ("unusual traffic", "/sorry/", "captcha", "before you continue",
             "consent.google")
@@ -292,7 +292,7 @@ def connection_ok(cfg, text: str) -> bool:
 _TIMES = re.compile(r"(\d{1,2}:\d{2}\s?[AP]M)(?:\s*\+(\d+))?")
 _ROUTE = re.compile(r"\b([A-Z]{3})\s*[–-]\s*([A-Z]{3})\b")
 _DURATION = re.compile(r"\b(\d+)\s*hr(?:\s*(\d+)\s*min)?|\b(\d+)\s*min\b")
-_SEPARATE = re.compile(r"separate tickets booked together", re.I)
+_SEPARATE = re.compile(r"separate tickets(?: booked together)?|self[- ]transfer", re.I)
 
 
 def _clock_time(text: str):
@@ -325,6 +325,7 @@ def leg_from_row(cfg, text: str, on_date: str, search_from: str,
     length = _DURATION.search(tail)
     if length is None:
         return None
+    sold_as = _SEPARATE.search(tail[:length.start()])
     carriers = _SEPARATE.sub("", tail[:length.start()]).strip(" ,")
     airlines = tuple(a.strip() for a in carriers.split(",") if a.strip())
     if not airlines:
@@ -352,7 +353,10 @@ def leg_from_row(cfg, text: str, on_date: str, search_from: str,
                from_airport=route.group(1), to_airport=route.group(2),
                depart=depart, arrive=arrive, duration_min=minutes,
                stops=stops, airlines=airlines, price=price, bag_fee=bag_fee,
-               layover_ok=True, connection_note=note)
+               layover_ok=True, connection_note=note,
+               ticketing=("" if sold_as is None else
+                          "self transfer" if "self" in sold_as.group(0).lower()
+                          else "separate tickets"))
 
 
 def found_on_page(cfg, combos, verified: dict) -> list:

@@ -101,7 +101,7 @@ jobs:
           args=()
           [ "$SUMMARY" = "true" ] && args+=(--summary)
           # quoted, so a two-word place name stays one argument
-          [ -z "$ONLY" ] && ONLY="Beijing,Qingdao,Weihai"
+          [ -z "$ONLY" ] && ONLY="Beijing,Qingdao"
           [ -n "$ONLY" ] && args+=(--only "$ONLY")
           python -m flightwatch "${args[@]}"
 

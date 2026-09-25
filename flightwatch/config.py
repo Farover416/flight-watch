@@ -130,6 +130,10 @@ class Config:
     # whole sweep. 0 turns it off.
     verify_top: int = 6
     verify_rows: int = 4
+    # Open every search page instead of the verify_top the feed ranks
+    # cheapest - see survey.py. Only for a trip with fixed dates; a date
+    # window has hundreds of pairs and keeps verify_top.
+    survey: bool = False
 
     request_delay_seconds: float = 3.0
     request_retries: int = 2
@@ -313,7 +317,7 @@ def load(path: str | Path | None = None) -> Config:
         "check_round_trip",
         "round_trip_candidates", "extended_per_run", "keep_per_search",
         "report_top", "max_per_city_pair", "unrestricted_top",
-        "verify_top", "verify_rows", "cities", "areas",
+        "verify_top", "verify_rows", "survey", "cities", "areas",
         "request_delay_seconds", "request_retries",
         "request_backoff_seconds",
     ):

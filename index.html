@@ -226,7 +226,7 @@ const WORKFLOW = "check.yml";
 const BRANCH = "main";
 const TOKEN_KEY = "fw.token";
 const FIRST_MONTH = "2026-09";
-const CORE = ["Beijing", "Qingdao", "Weihai"];
+const CORE = ["Beijing", "Qingdao"];
 
 /* ── which trip is on screen ─────────────────────────────────────────
    Each trip keeps its prices in its own folder, so switching trips is
@@ -300,8 +300,25 @@ function checkLinks(sig, row) {
   const p = parseSig(sig);
   const google = (LATEST.links || {})[sig] || null;
   const names = Object.keys(CMP);
+  const legs = (withGoogle) => [["outbound", row[3], p.out], ["return", row[4], p.back]]
+      .map(([label, fp, date], n) => {
+    const frm = fp[4], to = fp[5];
+    const g = withGoogle && google && google[n]
+      ? [["Google Flights", google[n][1], true]] : [];
+    return {
+      title: `Check the ${label} leg on`,
+      links: g.concat(names.map((k) => [k, CMP[k](frm, to, date, null), false])),
+    };
+  });
 
-  if (!row[4]) {
+  // One ticket into one city and home from another: Google's own link is
+  // the only one that searches it whole; the rest can only look up a leg.
+  if (p.source === "multi-city" && row[4]) {
+    return [{ title: "Check this trip on",
+              links: (google || []).map(([, u]) => ["Google Flights", u, true]) }]
+      .concat(legs(false));
+  }
+  if (!row[4] || p.source === "round-trip") {
     const [frm, to] = row[5] || ["SIN", p.to];
     return [{
       title: "Check this trip on",
@@ -309,15 +326,7 @@ function checkLinks(sig, row) {
         .concat(names.map((n) => [n, CMP[n](frm, to, p.out, p.back), false])),
     }];
   }
-  return [["outbound", row[3], p.out], ["return", row[4], p.back]]
-      .map(([label, fp, date], n) => {
-    const frm = fp[4], to = fp[5];
-    const g = google && google[n] ? [["Google Flights", google[n][1], true]] : [];
-    return {
-      title: `Check the ${label} leg on`,
-      links: g.concat(names.map((k) => [k, CMP[k](frm, to, date, null), false])),
-    };
-  });
+  return legs(true);
 }
 
 function linksHtml(groups, compact) {
@@ -349,6 +358,8 @@ const isOpenJaw = (sig) => {
 };
 
 const SWATCH = ["--s1","--s2","--s3","--s4","--s5","--s6"];
+// Sources that are one ticket: a plain return, and the open jaw bought as one.
+const ONE_TICKET = new Set(["round-trip", "multi-city"]);
 const $ = (id) => document.getElementById(id);
 const city = (code) => CITIES[code] || code;
 
@@ -473,7 +484,7 @@ function labelFor(sig, ok) {
     ? `${Number(p.out.slice(8))}–${DMY(p.back)}`
     : `${DMY(p.out)}–${DMY(p.back)}`;
   const bits = [where, dates,
-                p.source === "round-trip" ? "1 ticket" : "2 tickets"];
+                ONE_TICKET.has(p.source) ? "1 ticket" : "2 tickets"];
   if (!ok) bits.push("any transit");
   return bits.join(" · ");
 }
