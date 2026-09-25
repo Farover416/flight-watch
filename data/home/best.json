@@ -1,32 +1,37 @@
 {
-  "total": 546,
-  "verified": 546,
-  "signature": "TAO/TAO/2026-12-19/2026-12-29/round-trip",
-  "seen_at": "2026-09-25T10:30:59Z",
+  "total": 494,
+  "verified": 494,
+  "signature": "TAO/TAO/2026-12-19/2026-12-28/round-trip",
+  "seen_at": "2026-09-25T12:40:50Z",
   "detail": {
-    "signature": "TAO/TAO/2026-12-19/2026-12-29/round-trip",
-    "total": 546,
-    "parsed": 546,
-    "verified": 546,
+    "signature": "TAO/TAO/2026-12-19/2026-12-28/round-trip",
+    "total": 494,
+    "parsed": 494,
+    "verified": 494,
     "verified_back": null,
     "country": "China",
     "source": "round-trip",
     "open_jaw": false,
-    "nights": 9,
+    "nights": 8,
     "out": {
       "route": "SIN-TAO",
-      "depart": "2026-12-19T03:30:00",
-      "arrive": "2026-12-20T08:55:00",
+      "depart": "2026-12-19T20:20:00",
+      "arrive": "2026-12-20T13:15:00",
       "stops": 1,
       "airlines": [
-        "China Eastern"
+        "Cathay Pacific"
       ],
-      "price": 546
+      "price": 0
     },
     "back": {
       "route": "TAO-SIN",
-      "date": "2026-12-29",
-      "verified": false
+      "depart": "2026-12-28T14:30:00",
+      "arrive": "2026-12-29T11:50:00",
+      "stops": 1,
+      "airlines": [
+        "Cathay Pacific"
+      ],
+      "price": 0
     }
   }
 }
