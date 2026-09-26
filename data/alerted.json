@@ -143,5 +143,14 @@
   "PKX/PKX/2026-12-19/2026-12-28/one-way pair": 851,
   "TAO/PKX/2026-12-18/2026-12-29/one-way pair": 874,
   "PEK/PEK/2026-12-19/2026-12-27/one-way pair": 837,
-  "PKX/PEK/2026-12-19/2026-12-28/one-way pair": 898
+  "PKX/PEK/2026-12-19/2026-12-28/one-way pair": 898,
+  "TAO/PKX/2026-12-19/2026-12-29/one-way pair": 747,
+  "PEK/TAO/2026-12-19/2026-12-27/one-way pair": 755,
+  "PEK/TAO/2026-12-19/2026-12-28/one-way pair": 755,
+  "TAO/PKX/2026-12-19/2026-12-27/one-way pair": 792,
+  "TAO/PEK/2026-12-19/2026-12-29/one-way pair": 820,
+  "TAO/PKX/2026-12-19/2026-12-28/one-way pair": 835,
+  "TAO/PEK/2026-12-19/2026-12-28/one-way pair": 860,
+  "PKX/TAO/2026-12-19/2026-12-27/one-way pair": 886,
+  "PKX/TAO/2026-12-19/2026-12-28/one-way pair": 886
 }
