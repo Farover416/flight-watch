@@ -152,5 +152,9 @@
   "TAO/PKX/2026-12-19/2026-12-28/one-way pair": 835,
   "TAO/PEK/2026-12-19/2026-12-28/one-way pair": 860,
   "PKX/TAO/2026-12-19/2026-12-27/one-way pair": 886,
-  "PKX/TAO/2026-12-19/2026-12-28/one-way pair": 886
+  "PKX/TAO/2026-12-19/2026-12-28/one-way pair": 886,
+  "PEK/TAO/2026-12-19/2026-12-29/one-way pair": 755,
+  "PEK/PEK/2026-12-19/2026-12-28/one-way pair": 799,
+  "TAO/TAO/2026-12-19/2026-12-29/one-way pair": 848,
+  "PKX/TAO/2026-12-19/2026-12-29/one-way pair": 887
 }
