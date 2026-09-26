@@ -132,7 +132,7 @@
   "PKX/PKX/2026-12-19/2026-12-27/round-trip": 827,
   "PEK/PKX/2026-12-19/2026-12-29/one-way pair": 653,
   "PEK/PKX/2026-12-19/2026-12-27/one-way pair": 698,
-  "PEK/PEK/2026-12-19/2026-12-29/one-way pair": 729,
+  "PEK/PEK/2026-12-19/2026-12-29/one-way pair": 727,
   "PEK/PKX/2026-12-19/2026-12-28/one-way pair": 726,
   "TAO/PKX/2026-12-19/2026-12-29/multi-city": 751,
   "PKX/PKX/2026-12-19/2026-12-29/one-way pair": 778,
@@ -142,5 +142,6 @@
   "TAO/PKX/2026-12-19/2026-12-28/multi-city": 861,
   "PKX/PKX/2026-12-19/2026-12-28/one-way pair": 851,
   "TAO/PKX/2026-12-18/2026-12-29/one-way pair": 874,
-  "PEK/PEK/2026-12-19/2026-12-27/one-way pair": 837
+  "PEK/PEK/2026-12-19/2026-12-27/one-way pair": 837,
+  "PKX/PEK/2026-12-19/2026-12-28/one-way pair": 898
 }
