@@ -244,8 +244,13 @@ def _needs_daylight(cfg, text) -> bool:
 # wide window, the airport on the next line on a narrow one. The "+1" counts
 # from the day the trip leaves, and every time is local to its airport.
 _STEP = re.compile(
-    r"^[ \t]*(\d{1,2}:\d{2}\s?[AP]M)(?:\s*\+(\d+))?[ \t]*(?:\n[ \t]*)?"
+    r"^[ \t]*(\d{1,2}:\d{2} ?[AaPp][Mm])(?:\s*\+(\d+))?[ \t]*(?:\n[ \t]*)?"
     r"[^\n(]{0,90}?\(([A-Z]{3})\)", re.M)
+# The page writes "1:40 PM" and "Changi Airport (SIN)": a narrow and
+# a plain no-break space, which the clock parser does not take for spaces.
+# Every stop on the laptop read as unreadable until these were turned into
+# ordinary ones - 155 of 155 on the first run.
+_ODD_SPACES = re.compile(r"[     ]")
 
 
 def stops_from_details(text, on_date):
@@ -255,7 +260,7 @@ def stops_from_details(text, on_date):
     off the page, not worked out - so the daylight half of the rules can be
     applied to them exactly as it is to the feed's flights.
     """
-    steps = _STEP.findall(text or "")
+    steps = _STEP.findall(_ODD_SPACES.sub(" ", text or ""))
     if len(steps) < 2 or len(steps) % 2:
         return None
     try:
@@ -267,7 +272,7 @@ def stops_from_details(text, on_date):
         return None
     stops = []
     for i in range(1, len(when) - 1, 2):
-        (landed, here), (left, _there) = when[i], when[i + 1]
+        (landed, here), (left, _) = when[i], when[i + 1]
         if left < landed:
             return None
         stops.append(Layover(airport=here, start=landed, end=left))
@@ -386,7 +391,11 @@ class Judge:
         details = stops_from_details(got.get("text"), on_date)
         if details is None or not _agrees(details, leg, text):
             self.untimed += 1
-            log.info("    could not time the stop on %s", text[:60])
+            # The first two say what the page gave - enough to see why, when
+            # the next change to Google's page breaks this again.
+            seen = (f" - page gave {(got.get('text') or got.get('error') or '')[:300]!r}"
+                    if self.untimed <= 2 else "")
+            log.info("    could not time the stop on %s%s", text[:60], seen)
             return dataclasses.replace(leg, layover_ok=False), True
         stops = details[2]
         return dataclasses.replace(leg, layovers=stops,

@@ -3,15 +3,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 import logging
 import sys
-from datetime import datetime
+from datetime import datetime, timedelta
 
-from . import combine, config, present, search, survey, verify
+from . import combine, config, search, survey, verify
 from .models import Leg, SweepResult
 from . import sales as sales_feed
-from .notify import (NoChatYet, Telegram, format_deals, format_sales,
-                     format_survey, format_unrestricted, format_verified)
+from .notify import NoChatYet, Telegram, check_messages, format_sales
 from .search import search_one_way, search_round_trip
 from .state import Store
 
@@ -247,6 +247,56 @@ def _verify(cfg, result: SweepResult) -> dict:
     return verified
 
 
+# While the laptop is checking, GitHub leaves the messages to it: its prices are
+# the complete ones, and one set of messages is the point. A laptop check takes
+# over an hour and starts every two, so four hours since its last one means it
+# has stopped; Taipei is checked from there every six.
+LAPTOP_COVERS = timedelta(hours=4)
+LAPTOP_COVERS_TAIPEI = timedelta(hours=8)
+
+
+def _laptop_covering(cfg) -> timedelta | None:
+    """On GitHub: how long ago the laptop checked this trip, when that is
+    recent enough for its messages to stand for this run's. Else None."""
+    if cfg.at_home:
+        return None
+    window = (LAPTOP_COVERS_TAIPEI if cfg.trip is not None and cfg.trip.window
+              is not None else LAPTOP_COVERS)
+    try:
+        lines = (cfg.data_dir / "home" / "history.jsonl").read_text(
+            encoding="utf-8").strip().splitlines()
+        when = datetime.fromisoformat(json.loads(lines[-1])["ts"].rstrip("Z"))
+    except (OSError, IndexError, KeyError, ValueError):
+        return None
+    ago = datetime.utcnow() - when
+    return ago if timedelta(0) <= ago < window else None
+
+
+def _seen_elsewhere(cfg) -> list[str]:
+    """Sales the other side - GitHub or the laptop - has already announced."""
+    other = (cfg.data_dir.parent if cfg.at_home else cfg.data_dir / "home")
+    try:
+        seen = json.loads((other / "health.json").read_text(encoding="utf-8"))
+        return [str(uid) for uid in seen.get("seen_sales") or []]
+    except (OSError, ValueError, AttributeError):
+        return []
+
+
+def _pairs(cfg, cities) -> list[tuple[str, str]]:
+    """The kinds of trip a check reports, in the order asked for: each city
+    as a return, then each open jaw you can make by train, both ways round.
+    None for a trip to one place, which gets a single list."""
+    if cfg.trip is not None and cfg.trip.window is not None:
+        return None
+    cities = list(dict.fromkeys(cities or []))
+    if not cities:
+        return None
+    pairs = [(c, c) for c in cities]
+    pairs += [(a, b) for a in cities for b in cities
+              if a != b and cfg.reachable_by_train(a, b)]
+    return pairs[:4]
+
+
 def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
            dry_run: bool, focus: str | None = None, cities=None) -> int:
     def deliver(text: str) -> None:
@@ -261,20 +311,30 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
             log.warning("%s", exc)
             print("\n" + plain)
 
-    # Announcements first: a sale expires, a fare drift does not.
-    try:
-        fresh = sales_feed.new_since(sales_feed.fetch(), store.seen_sales())
-    except Exception as exc:  # never let the feed cost a run
-        log.info("sale check skipped (%s)", exc)
-        fresh = []
+    covered_for = _laptop_covering(cfg)
+    if covered_for is not None:
+        log.info("the laptop checked %.1f h ago - its messages stand for this "
+                 "run, which only saves its prices", covered_for.total_seconds() / 3600)
+
+    # Announcements first: a sale expires, a fare drift does not. Only the
+    # main watch announces them, and a sale either side has already announced
+    # is not announced again.
+    fresh = []
+    if cfg.trip is None:
+        try:
+            fresh = sales_feed.new_since(sales_feed.fetch(),
+                                         store.seen_sales() + _seen_elsewhere(cfg))
+        except Exception as exc:  # never let the feed cost a run
+            log.info("sale check skipped (%s)", exc)
     if fresh:
         log.info("%d new sale announcement(s)", len(fresh))
-        deliver(format_sales(fresh))
+        if covered_for is None:
+            deliver(format_sales(fresh))
         store.record_sales(fresh)
 
     if result.looks_blocked:
         log.error("every search came back empty — Google Flights is likely blocking us")
-        if store.should_warn_blocked():
+        if store.should_warn_blocked() and covered_for is None:
             deliver(
                 "<b>⚠ Flight watcher is not getting results</b>\n\n"
                 f"{result.blind_searches} of {result.searches_run} searches "
@@ -295,70 +355,25 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
     surveyed = None
     if cfg.survey and cities and (cfg.trip is None or cfg.trip.window is None):
         surveyed = _survey(cfg, result, store, cities)
-    verified = {} if surveyed is not None else _verify(cfg, result)
+    if surveyed is None:
+        _verify(cfg, result)
 
     # Every run reports what it actually found. Suppressing fares because an
     # earlier run already mentioned them hid the cheapest ones and surfaced
     # worse alternatives, which is the opposite of useful.
-    # A trip with no budget has nothing to fail: every trip found is worth
-    # reporting, and "new low" is the only signal that means anything.
+    result.combos.sort(key=lambda c: c.price)
+    result.any_combos.sort(key=lambda c: c.price)
     under_budget = (list(result.combos) if cfg.max_total is None
                     else [c for c in result.combos if c.price <= cfg.max_total])
-    previous_best = store.best_total()
     if result.combos:
         store.update_best(result.combos[0])
-
-    if not result.combos:
-        log.info("no valid trips found this run")
-        note = (
-            f"No trips matched this run - {result.searches_run} searches, "
-            f"{result.searches_failed} failed."
-        )
-        if result.searches_unparsed:
-            # "Nothing found" and "could not look" are different answers, and
-            # only one of them means you should stop hoping.
-            note += (
-                f"\n\n{result.searches_unparsed} of them came back as a page "
-                "that could not be read, so those routes are unknown rather "
-                "than empty."
-            )
-        deliver(note)
-        # Nothing passed the connection rules, but something may still fly.
-        # That is the most useful moment for this list, not the least.
-        if result.any_combos:
-            deliver(format_unrestricted(cfg, result.any_combos,
-                                        cfg.unrestricted_top))
-        store.append_history(result)
-        store.save()
-        return 0
-
-    where = focus or cfg.trip_name
-    if cfg.at_home:
-        where += " · from your laptop"
-    items = present.prepare(cfg, under_budget or result.combos)
-    if cfg.max_total is None:
-        heading = f"Cheapest {len(items)} right now - {where}"
-    elif under_budget:
-        heading = (
-            f"🔥 {len(under_budget)} fare(s) under S${cfg.max_total}, "
-            f"best {len(items)} - {where}"
-        )
     else:
-        heading = (
-            f"Nothing under S${cfg.max_total} - cheapest {len(items)} "
-            f"right now - {where}"
-        )
-    if previous_best is not None and result.combos[0].price < previous_best:
-        heading += f" · new low, was S${previous_best}"
+        log.info("no valid trips found this run")
 
-    deliver(format_deals(cfg, items, heading))
-    if result.any_combos:
-        deliver(format_unrestricted(cfg, result.any_combos, cfg.unrestricted_top))
-
-    if surveyed is not None:
-        deliver(format_survey(cfg, surveyed))
-    elif verified:
-        deliver(format_verified(cfg, verified))
+    # One message per kind of trip, three trips in each - see check_messages.
+    if covered_for is None:
+        for text in check_messages(cfg, result, _pairs(cfg, cities)):
+            deliver(text)
     for combo in under_budget:
         store.record_alert(combo)
 

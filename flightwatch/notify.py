@@ -8,6 +8,7 @@ import os
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import timedelta
 from pathlib import Path
 
 from . import compare, present
@@ -181,6 +182,111 @@ def leg_line(cfg, leg) -> str:
         f"  {leg.depart:%d %b %H:%M} → {leg.arrive:%d %b %H:%M}"
         f"  ({esc(stops)}, {esc(leg.airline_label)}{esc(bag)})"
     )
+
+
+# -- the messages a check sends ----------------------------------------------
+#
+# One message per kind of trip, three trips in each: for December, Beijing and
+# Qingdao each as a return, each open jaw both ways round, and the cheapest
+# three with the layover rules off; for Taipei, the cheapest three. Asked for
+# on 26 Sep, when a check was sending three long messages from each of two
+# places and none of them was easy to read.
+
+TOP = 3
+
+
+def run_time(started) -> str:
+    """When a check started, Singapore time - the runs log it in UTC."""
+    return (started + timedelta(hours=8)).strftime("%H:%M")
+
+
+def route_name(cfg, into: str, home: str) -> str:
+    if into == home:
+        return f"{cfg.city_name(into)} return"
+    return f"{cfg.city_name(into)} in, {cfg.city_name(home)} out"
+
+
+def top(combos, limit: int = TOP) -> list:
+    """The cheapest few trips as (trip, same flights on other dates) pairs.
+
+    The same flights a day later are one choice, not two, so they fold into
+    the line of the cheapest date instead of taking up the list.
+    """
+    return present.collapse(sorted(combos, key=lambda c: c.price))[:limit]
+
+
+def _trip(cfg, combo, alternatives, where: str = "") -> list[str]:
+    tickets = ("one ticket" if combo.source in ("round-trip", "multi-city")
+               else "two tickets")
+    links = " · ".join(f'<a href="{esc(url)}">{esc(label)}</a>'
+                       for label, url in combo.booking_urls(cfg))
+    head = (f"<b>S${combo.price}</b>" + (f" · {esc(where)}" if where else "")
+            + f" · {esc(present.day_label(combo.out.date))} → "
+            f"{esc(present.day_label(combo.back_date))} · {tickets}  {links}")
+    lines = [head, f"✈ {leg_line(cfg, combo.out)}"]
+    if combo.back is not None:
+        lines.append(f"↩ {leg_line(cfg, combo.back)}")
+    else:
+        lines.append(f"↩ {esc(cfg.city_name(combo.back_city))} → "
+                     f"{esc(cfg.city_name(cfg.origin))}  "
+                     f"{esc(present.day_label(combo.back_date))} "
+                     "<i>(return time not read - check it)</i>")
+    # Other dates only: the same flights on the same dates at a higher price
+    # is not a choice anyone would make.
+    others = [a for a in alternatives
+              if (a.out.date, a.back_date) != (combo.out.date, combo.back_date)]
+    if others:
+        shown = "; ".join(present.alternative_label(combo, a) for a in others[:3])
+        lines.append(f"<i>also {esc(shown)}</i>")
+    return lines
+
+
+def format_top(cfg, title: str, picks, footer: str, where=None) -> str:
+    """A heading, up to three trips, one line saying where the prices came from."""
+    lines = [f"<b>{esc(title)}</b>"]
+    if not picks:
+        lines += ["", "Nothing this check."]
+    for combo, alternatives in picks:
+        lines.append("")
+        lines += _trip(cfg, combo, alternatives, where(combo) if where else "")
+    lines += ["", f"<i>{esc(footer)}</i>"]
+    return "\n".join(lines)
+
+
+def check_messages(cfg, result, pairs=None) -> list[str]:
+    """Everything a check has to say about prices, one message per kind of trip.
+
+    ``pairs`` are the (city landed in, city flown home from) kinds to list, in
+    order. Without them - a trip to one place, like Taipei - it is the cheapest
+    three in a single message.
+    """
+    stamp = (f"Laptop check {run_time(result.started)}" if cfg.at_home else
+             f"GitHub check {run_time(result.started)} - airline fares only, "
+             "while your laptop is off")
+    seats = f" · for {cfg.adults} adults" if cfg.adults > 1 else ""
+    trouble = ""
+    if result.searches_failed or result.searches_unparsed:
+        trouble = (f" · {result.searches_failed + result.searches_unparsed} of "
+                   f"{result.searches_run} searches could not be read")
+
+    if not pairs:
+        name = cfg.trip_name.split("⇄")[-1].strip()
+        return [format_top(cfg, f"{name} · top {TOP}", top(result.combos),
+                           f"{stamp}{seats}{trouble}")]
+
+    within = f"{stamp} · within your transit rules · checked bag included{seats}"
+    messages = []
+    for into, home in pairs:
+        mine = [c for c in result.combos
+                if c.out.search_to == into and c.back_city == home]
+        messages.append(format_top(cfg, f"{route_name(cfg, into, home)} · top {TOP}",
+                                   top(mine), within))
+    messages.append(format_top(
+        cfg, f"Ignoring transit rules · top {TOP}", top(result.any_combos),
+        f"{stamp} · layover rules off; dates, 1 stop and the bag still apply"
+        f"{seats}{trouble}",
+        where=lambda c: route_name(cfg, c.out.search_to, c.back_city)))
+    return messages
 
 
 def format_sales(sales) -> str:

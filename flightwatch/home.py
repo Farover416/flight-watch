@@ -107,21 +107,163 @@ def _trim_log(limit: int = 2_000_000, keep: int = 500_000) -> None:
         pass
 
 
+def _alive(pid: int) -> bool:
+    """Whether the process with this id is still running."""
+    if pid <= 0:
+        return False
+    if os.name != "nt":
+        try:
+            os.kill(pid, 0)
+        except ProcessLookupError:
+            return False
+        except OSError:
+            return True
+        return True
+    # Never os.kill on Windows: there it terminates the process.
+    import ctypes
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.OpenProcess.restype = ctypes.c_void_p
+    handle = kernel32.OpenProcess(0x1000, False, pid)   # QUERY_LIMITED_INFORMATION
+    if not handle:
+        return False
+    try:
+        code = ctypes.c_ulong()
+        kernel32.GetExitCodeProcess.argtypes = (ctypes.c_void_p, ctypes.c_void_p)
+        if not kernel32.GetExitCodeProcess(ctypes.c_void_p(handle), ctypes.byref(code)):
+            return False
+        return code.value == 259                           # STILL_ACTIVE
+    finally:
+        kernel32.CloseHandle(ctypes.c_void_p(handle))
+
+
+# However long a check runs, it is over by then: a lock this old is stale
+# even if its process id has since been handed to something else.
+LOCK_LIMIT = 4 * 3600
+
+
 def _lock() -> bool:
+    """Take the lock, or say another check holds it.
+
+    The lock names the process holding it, and only a live one counts. It used
+    to go stale by age alone, after 90 minutes - and a check the laptop slept
+    through is older than that on waking while its watcher is still going, so
+    the next check took the lock and a second survey ran beside the first.
+    """
     try:
         fd = os.open(LOCK, os.O_CREAT | os.O_EXCL | os.O_WRONLY)
     except FileExistsError:
         try:
             age = time.time() - LOCK.stat().st_mtime
-        except OSError:
+            pid = int((LOCK.read_text(encoding="utf-8").split() or ["0"])[0])
+        except (OSError, ValueError):
+            age, pid = LOCK_LIMIT + 1, 0
+        try:
+            running = _alive(pid)
+        except Exception:                  # cannot tell: go by age, as before
+            running = age <= 110 * 60
+        if age <= LOCK_LIMIT and running:
             return False
-        if age > 90 * 60:                    # a check that died mid-way
-            LOCK.unlink(missing_ok=True)
-            return _lock()
-        return False
+        LOCK.unlink(missing_ok=True)       # its check died mid-way
+        return _lock()
     os.write(fd, str(os.getpid()).encode())
     os.close(fd)
     return True
+
+
+class _Tree:
+    """Everything a check starts, ended together with the check.
+
+    Windows lets a process outlive the one that started it. When the laptop
+    slept through a check, the scheduled task was stopped on waking - its
+    110-minute limit counts the sleep - but the watcher it had started kept
+    going, and the next check's watcher ran beside it: two surveys at once,
+    twice the load on Google, both writing the same files. Each child is put
+    in a job that Windows closes when this process ends, however it ends,
+    and closing it ends the watcher, its browser and anything else under it.
+    Anywhere this cannot be set up, children are started as before.
+    """
+
+    def __init__(self):
+        self.kernel32 = self.job = None
+        if os.name != "nt":
+            return
+        try:
+            self.kernel32, self.job = _kill_on_close_job()
+        except Exception:        # never let the safety net stop the check
+            self.kernel32 = self.job = None
+
+    def adopt(self, proc) -> None:
+        if self.job is None:
+            return
+        try:
+            self.kernel32.AssignProcessToJobObject(self.job,
+                                                   int(getattr(proc, "_handle")))
+        except Exception:
+            pass
+
+    def end(self, proc) -> None:
+        """Stop a child and everything it started."""
+        if self.job is not None:
+            try:
+                self.kernel32.TerminateJobObject(self.job, 1)
+            except Exception:
+                proc.kill()
+        else:
+            proc.kill()
+        try:
+            proc.wait(timeout=60)
+        except subprocess.TimeoutExpired:
+            pass
+
+
+def _kill_on_close_job():
+    """A Windows job object that kills its processes when its last handle closes."""
+    import ctypes
+    from ctypes import wintypes
+
+    kernel32 = ctypes.WinDLL("kernel32", use_last_error=True)
+    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
+    kernel32.CreateJobObjectW.argtypes = (ctypes.c_void_p, wintypes.LPCWSTR)
+    kernel32.SetInformationJobObject.argtypes = (wintypes.HANDLE, ctypes.c_int,
+                                                 ctypes.c_void_p, wintypes.DWORD)
+    kernel32.AssignProcessToJobObject.argtypes = (wintypes.HANDLE, wintypes.HANDLE)
+    kernel32.TerminateJobObject.argtypes = (wintypes.HANDLE, wintypes.UINT)
+    kernel32.CloseHandle.argtypes = (wintypes.HANDLE,)
+
+    class Basic(ctypes.Structure):
+        _fields_ = [("PerProcessUserTimeLimit", ctypes.c_int64),
+                    ("PerJobUserTimeLimit", ctypes.c_int64),
+                    ("LimitFlags", wintypes.DWORD),
+                    ("MinimumWorkingSetSize", ctypes.c_size_t),
+                    ("MaximumWorkingSetSize", ctypes.c_size_t),
+                    ("ActiveProcessLimit", wintypes.DWORD),
+                    ("Affinity", ctypes.c_size_t),
+                    ("PriorityClass", wintypes.DWORD),
+                    ("SchedulingClass", wintypes.DWORD)]
+
+    class Counters(ctypes.Structure):
+        _fields_ = [(name, ctypes.c_uint64) for name in (
+            "ReadOperationCount", "WriteOperationCount", "OtherOperationCount",
+            "ReadTransferCount", "WriteTransferCount", "OtherTransferCount")]
+
+    class Extended(ctypes.Structure):
+        _fields_ = [("BasicLimitInformation", Basic), ("IoInfo", Counters),
+                    ("ProcessMemoryLimit", ctypes.c_size_t),
+                    ("JobMemoryLimit", ctypes.c_size_t),
+                    ("PeakProcessMemoryUsed", ctypes.c_size_t),
+                    ("PeakJobMemoryUsed", ctypes.c_size_t)]
+
+    job = kernel32.CreateJobObjectW(None, None)
+    if not job:
+        raise ctypes.WinError(ctypes.get_last_error())
+    info = Extended()
+    info.BasicLimitInformation.LimitFlags = 0x2000     # KILL_ON_JOB_CLOSE
+    if not kernel32.SetInformationJobObject(job, 9, ctypes.byref(info),
+                                            ctypes.sizeof(info)):
+        error = ctypes.get_last_error()
+        kernel32.CloseHandle(job)
+        raise ctypes.WinError(error)
+    return kernel32, job
 
 
 class _Run:
@@ -135,6 +277,7 @@ class _Run:
                         # Never wait on a password box nobody can see.
                         GIT_TERMINAL_PROMPT="0", GCM_INTERACTIVE="never")
         self.git_exe = _git_exe()
+        self.tree = _Tree()
 
     def say(self, message: str) -> None:
         self.out.write(f"{_now()} {message}\n")
@@ -143,14 +286,18 @@ class _Run:
     def _call(self, args, timeout) -> int:
         self.out.flush()
         try:
-            return subprocess.run(args, cwd=REPO, env=self.env, stdout=self.out,
-                                  stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
-                                  creationflags=NO_WINDOW, timeout=timeout).returncode
-        except subprocess.TimeoutExpired:
-            self.say(f"gave up after {timeout // 60} min: {' '.join(args[:4])}")
-            return 1
+            proc = subprocess.Popen(args, cwd=REPO, env=self.env, stdout=self.out,
+                                    stderr=subprocess.STDOUT, stdin=subprocess.DEVNULL,
+                                    creationflags=NO_WINDOW)
         except OSError as exc:
             self.say(f"could not start {args[0]}: {exc}")
+            return 1
+        self.tree.adopt(proc)
+        try:
+            return proc.wait(timeout=timeout)
+        except subprocess.TimeoutExpired:
+            self.tree.end(proc)
+            self.say(f"gave up after {timeout // 60} min: {' '.join(args[:4])}")
             return 1
 
     def git(self, *args) -> int:
