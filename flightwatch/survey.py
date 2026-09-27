@@ -173,7 +173,15 @@ def plan(cfg, cities) -> list[Page]:
                 _search(cfg, [(city, origin, back, None)], "one-way"),
                 ("ow", city, origin, back), city, city, back, None, None,
                 frm=city, to=origin))
-    return pages
+    # Should a check run out of time, pages go unread from the end, so the end
+    # is where the least is lost: the one-way pages come first - quick, and
+    # every two-ticket trip is built from them - and among the one-ticket
+    # pages, a day with an earliest-departure limit (the 18th, from 21:00:
+    # few flights, the dearest on every run so far) comes last.
+    one_way = [p for p in pages if p.kind == "ow"]
+    one_ticket = sorted((p for p in pages if p.kind != "ow"),
+                        key=lambda p: p.earliest is not None)
+    return one_way + one_ticket
 
 
 # -- reading rows ------------------------------------------------------------

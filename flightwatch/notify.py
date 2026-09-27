@@ -253,12 +253,13 @@ def format_top(cfg, title: str, picks, footer: str, where=None) -> str:
     return "\n".join(lines)
 
 
-def check_messages(cfg, result, pairs=None) -> list[str]:
+def check_messages(cfg, result, pairs=None, unread: int = 0) -> list[str]:
     """Everything a check has to say about prices, one message per kind of trip.
 
     ``pairs`` are the (city landed in, city flown home from) kinds to list, in
     order. Without them - a trip to one place, like Taipei - it is the cheapest
-    three in a single message.
+    three in a single message. ``unread`` is how many search pages the check
+    ran out of time for, said once, at the end.
     """
     stamp = (f"Laptop check {run_time(result.started)}" if cfg.at_home else
              f"GitHub check {run_time(result.started)} - airline fares only, "
@@ -268,6 +269,9 @@ def check_messages(cfg, result, pairs=None) -> list[str]:
     if result.searches_failed or result.searches_unparsed:
         trouble = (f" · {result.searches_failed + result.searches_unparsed} of "
                    f"{result.searches_run} searches could not be read")
+    if unread:
+        trouble += (f" · {unread} search page{'s' if unread != 1 else ''} not "
+                    "opened in time - the search feed's prices stand for those")
 
     if not pairs:
         name = cfg.trip_name.split("⇄")[-1].strip()

@@ -372,7 +372,8 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
 
     # One message per kind of trip, three trips in each - see check_messages.
     if covered_for is None:
-        for text in check_messages(cfg, result, _pairs(cfg, cities)):
+        unread = len(getattr(surveyed, "unread", None) or [])
+        for text in check_messages(cfg, result, _pairs(cfg, cities), unread=unread):
             deliver(text)
     for combo in under_budget:
         store.record_alert(combo)
