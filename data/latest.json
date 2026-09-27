@@ -1,5 +1,5 @@
 {
-  "ts": "2026-09-27T17:50:26Z",
+  "ts": "2026-09-27T18:56:31Z",
   "links": {
     "TAO/TAO/2026-12-19/2026-12-28/round-trip": [
       [
@@ -483,6 +483,12 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTkoAWoFEgNTSU5yBRIDVEFPGhwSCjIwMjYtMTItMjcoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQM%3D&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
+    "PKX/PKX/2026-12-19/2026-12-29/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTkoAWoFEgNTSU5yBRIDQkpTGhwSCjIwMjYtMTItMjkoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQE%3D&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
     "TAO/TAO/2026-12-19/2026-12-29/round-trip": [
       [
         "book",
@@ -511,6 +517,16 @@
       [
         "book",
         "https://www.google.com/travel/flights?tfs=Gh4SCjIwMjYtMTItMTgoAUAVagUSA1NJTnIFEgNCSlMaHBIKMjAyNi0xMi0yOCgBagUSA0JKU3IFEgNTSU5CAQFIAWoEEAEYAJgBAQ%3D%3D&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "PEK/PEK/2026-12-19/2026-12-29/one-way pair": [
+      [
+        "outbound",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTkoAWoFEgNTSU5yBRIDQkpTQgEBSAFqBBABGACYAQI%3D&hl=en-US&curr=SGD&gl=SG"
+      ],
+      [
+        "return",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMjkoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQI%3D&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "PKX/PKX/2026-12-18/2026-12-29/round-trip": [
