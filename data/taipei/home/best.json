@@ -1,31 +1,31 @@
 {
-  "total": 796,
-  "verified": 796,
-  "signature": "TPE/TPE/2026-11-24/2026-12-08/round-trip",
-  "seen_at": "2026-09-25T10:39:25Z",
+  "total": 708,
+  "verified": 708,
+  "signature": "TPE/TPE/2026-11-22/2026-12-10/round-trip",
+  "seen_at": "2026-09-28T12:28:33Z",
   "detail": {
-    "signature": "TPE/TPE/2026-11-24/2026-12-08/round-trip",
-    "total": 796,
-    "parsed": 831,
-    "verified": 796,
-    "verified_back": "12:10 AM – 4:50 AM Scoot 4 hr 40 min TPE–SIN Nonstop",
+    "signature": "TPE/TPE/2026-11-22/2026-12-10/round-trip",
+    "total": 708,
+    "parsed": 708,
+    "verified": 708,
+    "verified_back": null,
     "country": "Taiwan",
     "source": "round-trip",
     "open_jaw": false,
-    "nights": 14,
+    "nights": 18,
     "out": {
       "route": "SIN-TPE",
-      "depart": "2026-11-24T12:20:00",
-      "arrive": "2026-11-24T17:00:00",
+      "depart": "2026-11-22T06:10:00",
+      "arrive": "2026-11-22T11:00:00",
       "stops": 0,
       "airlines": [
-        "Scoot"
+        "ScootSingapore Airlines"
       ],
-      "price": 831
+      "price": 708
     },
     "back": {
       "route": "TPE-SIN",
-      "date": "2026-12-08",
+      "date": "2026-12-10",
       "verified": false
     }
   }
