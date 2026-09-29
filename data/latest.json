@@ -1,5 +1,5 @@
 {
-  "ts": "2026-09-29T16:28:31Z",
+  "ts": "2026-09-29T17:32:17Z",
   "links": {
     "TAO/TAO/2026-12-19/2026-12-28/round-trip": [
       [
@@ -35,6 +35,12 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTkoAWoFEgNTSU5yBRIDVEFPGhwSCjIwMjYtMTItMjcoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQM%3D&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
+    "PEK/PEK/2026-12-19/2026-12-28/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTkoAWoFEgNTSU5yBRIDQkpTGhwSCjIwMjYtMTItMjgoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQE%3D&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
     "TAO/PKX/2026-12-19/2026-12-27/one-way pair": [
       [
         "outbound",
@@ -61,12 +67,6 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMjkoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQI%3D&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "PEK/PEK/2026-12-18/2026-12-28/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=Gh4SCjIwMjYtMTItMTgoAUAVagUSA1NJTnIFEgNCSlMaHBIKMjAyNi0xMi0yOCgBagUSA0JKU3IFEgNTSU5CAQFIAWoEEAEYAJgBAQ%3D%3D&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
     "TAO/TAO/2026-12-19/2026-12-29/round-trip": [
       [
         "book",
@@ -81,12 +81,6 @@
       [
         "return",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMjkoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQI%3D&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "PEK/PEK/2026-12-19/2026-12-28/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTkoAWoFEgNTSU5yBRIDQkpTGhwSCjIwMjYtMTItMjgoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQE%3D&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "PEK/TAO/2026-12-19/2026-12-27/multi-city": [
@@ -269,6 +263,12 @@
       [
         "return",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMjkoAWoFEgNUQU9yBRIDU0lOQgEBSAFqBBABGACYAQI%3D&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "PEK/PEK/2026-12-18/2026-12-28/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=Gh4SCjIwMjYtMTItMTgoAUAVagUSA1NJTnIFEgNCSlMaHBIKMjAyNi0xMi0yOCgBagUSA0JKU3IFEgNTSU5CAQFIAWoEEAEYAJgBAQ%3D%3D&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "PEK/PKX/2026-12-18/2026-12-27/one-way pair": [
@@ -477,12 +477,6 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMjgoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQI%3D&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "PKX/PKX/2026-12-18/2026-12-27/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=Gh4SCjIwMjYtMTItMTgoAUAVagUSA1NJTnIFEgNCSlMaHBIKMjAyNi0xMi0yNygBagUSA0JKU3IFEgNTSU5CAQFIAWoEEAEYAJgBAQ%3D%3D&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
     "TAO/PEK/2026-12-19/2026-12-28/one-way pair": [
       [
         "outbound",
@@ -491,6 +485,18 @@
       [
         "return",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMjgoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQI%3D&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "PKX/PKX/2026-12-18/2026-12-28/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=Gh4SCjIwMjYtMTItMTgoAUAVagUSA1NJTnIFEgNCSlMaHBIKMjAyNi0xMi0yOCgBagUSA0JKU3IFEgNTSU5CAQFIAWoEEAEYAJgBAQ%3D%3D&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "PKX/PKX/2026-12-18/2026-12-27/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=Gh4SCjIwMjYtMTItMTgoAUAVagUSA1NJTnIFEgNCSlMaHBIKMjAyNi0xMi0yNygBagUSA0JKU3IFEgNTSU5CAQFIAWoEEAEYAJgBAQ%3D%3D&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "PKX/PKX/2026-12-18/2026-12-29/round-trip": [
@@ -503,6 +509,16 @@
       [
         "book",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTkoAWoFEgNTSU5yBRIDQkpTGhwSCjIwMjYtMTItMjkoAWoFEgNUQU9yBRIDU0lOQgEBSAFqBBABGACYAQM%3D&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "PEK/PEK/2026-12-18/2026-12-28/one-way pair": [
+      [
+        "outbound",
+        "https://www.google.com/travel/flights?tfs=Gh4SCjIwMjYtMTItMTgoAUAVagUSA1NJTnIFEgNCSlNCAQFIAWoEEAEYAJgBAg%3D%3D&hl=en-US&curr=SGD&gl=SG"
+      ],
+      [
+        "return",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMjgoAWoFEgNCSlNyBRIDU0lOQgEBSAFqBBABGACYAQI%3D&hl=en-US&curr=SGD&gl=SG"
       ]
     ]
   }
