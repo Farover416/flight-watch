@@ -172,5 +172,6 @@
   "PKX/TAO/2026-12-18/2026-12-29/one-way pair": 879,
   "TAO/PEK/2026-12-19/2026-12-27/one-way pair": 753,
   "TAO/PEK/2026-12-19/2026-12-29/multi-city": 729,
-  "PEK/PEK/2026-12-18/2026-12-28/round-trip": 810
+  "PEK/PEK/2026-12-18/2026-12-28/round-trip": 810,
+  "PKX/PKX/2026-12-18/2026-12-28/round-trip": 864
 }
