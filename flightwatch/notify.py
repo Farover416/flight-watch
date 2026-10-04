@@ -216,10 +216,23 @@ def top(combos, limit: int = TOP) -> list:
 
 
 def _trip(cfg, combo, alternatives, where: str = "") -> list[str]:
-    tickets = ("one ticket" if combo.source in ("round-trip", "multi-city")
-               else "two tickets")
     links = " · ".join(f'<a href="{esc(url)}">{esc(label)}</a>'
                        for label, url in combo.booking_urls(cfg))
+    if combo.source == "one-way":
+        # A single flight: its day, the flight, and the same flight on the
+        # other days if it is there too.
+        lines = [f"<b>S${combo.price}</b> · {esc(present.day_label(combo.out.date))} "
+                 f"· one way  {links}", f"✈ {leg_line(cfg, combo.out)}"]
+        others = [a for a in alternatives if a.out.date != combo.out.date]
+        if others:
+            shown = "; ".join(
+                f"{present.day_label(a.out.date)}, "
+                + ("same price" if a.price == combo.price else f"S${a.price}")
+                for a in others[:3])
+            lines.append(f"<i>also {esc(shown)}</i>")
+        return lines
+    tickets = ("one ticket" if combo.source in ("round-trip", "multi-city")
+               else "two tickets")
     head = (f"<b>S${combo.price}</b>" + (f" · {esc(where)}" if where else "")
             + f" · {esc(present.day_label(combo.out.date))} → "
             f"{esc(present.day_label(combo.back_date))} · {tickets}  {links}")
@@ -291,6 +304,34 @@ def check_messages(cfg, result, pairs=None, unread: int = 0) -> list[str]:
         f"{seats}{trouble}",
         where=lambda c: route_name(cfg, c.out.search_to, c.back_city)))
     return messages
+
+
+def one_way_messages(cfg, result, unread: int = 0) -> list[str]:
+    """The flight home on its own: the cheapest three within your transit
+    rules, and the cheapest three with the rules off. Asked for on 4 Oct, once
+    the way out was booked."""
+    plan = cfg.one_way_home
+    route = f"{cfg.city_name(plan.city)} → {cfg.city_name(cfg.origin)}"
+    stamp = (f"Laptop check {run_time(result.started)}" if cfg.at_home else
+             f"GitHub check {run_time(result.started)} - airline fares only, "
+             "while your laptop is off")
+    days = " and ".join(present.day_label(d) for d in plan.dates)
+    trouble = ""
+    if result.searches_failed or result.searches_unparsed:
+        trouble = (f" · {result.searches_failed + result.searches_unparsed} of "
+                   f"{result.searches_run} searches could not be read")
+    if unread:
+        trouble += (f" · {unread} search page{'s' if unread != 1 else ''} not "
+                    "opened in time - the search feed's prices stand for those")
+    return [
+        format_top(cfg, f"{route} · top {TOP}", top(result.combos),
+                   f"{stamp} · one way, {days} · within your transit rules · "
+                   f"checked bag included"),
+        format_top(cfg, f"{route}, ignoring transit rules · top {TOP}",
+                   top(result.any_combos),
+                   f"{stamp} · layover rules off; 1 stop and the bag still apply"
+                   f"{trouble}"),
+    ]
 
 
 def format_sales(sales) -> str:

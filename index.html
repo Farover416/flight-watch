@@ -237,9 +237,9 @@ const CORE = ["Beijing", "Qingdao"];
    Totals are NOT comparable between trips: Taipei is priced for two
    people. The heading says so on every switch, because a chart cannot. */
 const TRIPS = [
-  { key: "december", label: "North Asia", dir: "data", adults: 1,
-    blurb: "Singapore → North Asia, 18/19 Dec out, 27–29 Dec back. " +
-           "Under S$900 with a checked bag." },
+  { key: "december", label: "Flight home", dir: "data", adults: 1,
+    blurb: "Beijing → Singapore, one way, 29 or 30 Dec, with a checked bag. " +
+           "Earlier lines are the whole trips watched before 4 Oct." },
   { key: "taipei", label: "Taipei", dir: "data/taipei", adults: 2,
     blurb: "Singapore ⇄ Taipei, anywhere in 21 Nov – 31 Dec, 2–4 weeks away. " +
            "Direct flights only, no checked bag. Prices are for 2 adults." },
@@ -311,6 +311,15 @@ function checkLinks(sig, row) {
     };
   });
 
+  // A single flight home: one-way searches, never a return.
+  if (p.source === "one-way") {
+    const [frm, to] = row[5] || [p.from, p.to];
+    return [{
+      title: "Check this flight on",
+      links: (google || []).map(([, u]) => ["Google Flights", u, true])
+        .concat(names.map((n) => [n, CMP[n](frm, to, p.out, null), false])),
+    }];
+  }
   // One ticket into one city and home from another: Google's own link is
   // the only one that searches it whole; the rest can only look up a leg.
   if (p.source === "multi-city" && row[4]) {
@@ -354,7 +363,7 @@ const metro = (code) => METRO[code] || code;
 const cityOf = (code) => CITIES[metro(code)] || CITIES[code] || code;
 const isOpenJaw = (sig) => {
   const p = String(sig).split("/");
-  return metro(p[0]) !== metro(p[1]);
+  return p[4] !== "one-way" && metro(p[0]) !== metro(p[1]);
 };
 
 const SWATCH = ["--s1","--s2","--s3","--s4","--s5","--s6"];
@@ -474,6 +483,11 @@ const DMY = (iso) => {
 
 function labelFor(sig, ok) {
   const p = parseSig(sig);
+  if (p.source === "one-way") {
+    // "SIN/BJS/2026-12-29/2026-12-29/one-way": the flight home on one day.
+    return [`${cityOf(p.from)} → ${cityOf(p.to)}`, DMY(p.out), "one way"]
+      .concat(ok ? [] : ["any transit"]).join(" · ");
+  }
   const where = metro(p.to) === metro(p.from)
     ? cityOf(p.to)
     : `${cityOf(p.to)} in / ${cityOf(p.from)} out`;
@@ -500,7 +514,7 @@ function buildSeries(runs) {
         map.set(key, {
           key, sig, ok: !!ok, src: run.src,
           label: labelFor(sig, ok) + (run.src === "home" ? " · laptop" : ""),
-          city: cityOf(p.to),
+          city: cityOf(p.source === "one-way" ? p.from : p.to),
           openJaw: isOpenJaw(sig), points: new Map(),
         });
       }
@@ -969,7 +983,8 @@ function showAt(i, cx, cy) {
           ${wasRead(row)
             ? `<span class="t-d">read off the page${
                 row[6] < row[1] ? `, feed said S$${row[1]}` : ""}</span>` : ""}
-          ${row[3] ? `<div class="t-d">out · ${esc(fmtFlight(row[3]))}</div>` : ""}
+          ${row[3] ? `<div class="t-d">${parseSig(s.sig).source === "one-way"
+            ? "flight" : "out"} · ${esc(fmtFlight(row[3]))}</div>` : ""}
           ${row[4] ? `<div class="t-d">back · ${esc(fmtFlight(row[4]))}</div>` : ""}
         </span>
       </div>`).join("");
@@ -1024,8 +1039,9 @@ function openDetail(key) {
           : "Read off the page in a browser")
       : "Quoted by the search feed. Only the few cheapest trips each run get "
         + "opened in a browser, and this one was not."}</div>
-    ${legLine("Out", row[3])}
-    ${row[4] ? legLine("Back", row[4])
+    ${parseSig(s.sig).source === "one-way" ? legLine("Flight", row[3]) : legLine("Out", row[3])}
+    ${parseSig(s.sig).source === "one-way" ? ""
+       : row[4] ? legLine("Back", row[4])
        : row[7] ? `<div class="d-leg"><b>Back</b>
              <span class="d-air">${esc(row[7])}</span></div>`
        : `<div class="d-leg d-air">Back ${DMY(parseSig(s.sig).back)}

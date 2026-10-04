@@ -107,6 +107,7 @@ class SurveyResult:
     seconds: float = 0.0
     opened_up: int = 0                               # rows opened for stop times
     untimed: int = 0                                 # ... that could not be read
+    legs: dict = field(default_factory=dict)         # one-way page key -> its flights
 
     def best(self) -> dict:
         """The cheapest trip in each category, within your rules."""
@@ -685,8 +686,12 @@ def _one_ticket_page(cfg, page, target, rows, judge, found):
              if left is not None else "")
 
 
-def run(cfg, result, cities) -> SurveyResult:
-    """Open every page for these cities and turn what they show into trips."""
+def run(cfg, result, cities, pages=None) -> SurveyResult:
+    """Open every page for these cities and turn what they show into trips.
+
+    ``pages`` overrides the plan - the watch of a single flight home passes
+    just its one-way pages, and takes their flights from ``legs``.
+    """
     from playwright.sync_api import sync_playwright
 
     started = time.monotonic()
@@ -694,7 +699,7 @@ def run(cfg, result, cities) -> SurveyResult:
     found = SurveyResult()
     judge = Judge(cfg, list(getattr(result, "legs_out", []))
                   + list(getattr(result, "legs_in", [])))
-    pages = plan(cfg, cities)
+    pages = plan(cfg, cities) if pages is None else list(pages)
     log.info("survey: %d pages for %s", len(pages),
              ", ".join(cfg.city_name(c) for c in cities))
     outs, backs, urls = [], [], {}
@@ -723,6 +728,7 @@ def run(cfg, result, cities) -> SurveyResult:
                         continue
                     legs = one_way_legs(cfg, rows, target, judge, page)
                     (backs if target.to == cfg.origin else outs).extend(legs)
+                    found.legs[target.key] = legs
                     urls[target.key] = target.url
                     found.read.add(target.key)
                     good = [l.price for l in legs if l.layover_ok]

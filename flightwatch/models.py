@@ -277,6 +277,76 @@ class Combo:
         }
 
 
+@dataclass(frozen=True)
+class OneWay:
+    """One flight home, priced on its own - all a watch needs once the way
+    out is booked.
+
+    Shaped like a Combo where the record and the messages look - ``out`` is
+    the flight, ``back`` is None - so the same files and the same chart take
+    it. Its signature names the cities and the day, not the flight: the
+    chart's line for "Beijing to Singapore, 29 Dec" is the cheapest flight
+    that day, whichever one that is this run.
+    """
+
+    out: Leg
+    total: int                      # fare plus the checked-bag estimate
+    verified: int | None = None     # what a browser read, when one did
+    verified_urls: tuple[tuple[str, str], ...] = ()
+    source: str = "one-way"
+    back = None
+    verified_back = None
+    country = ""
+
+    @property
+    def price(self) -> int:
+        return self.total if self.verified is None else self.verified
+
+    @property
+    def back_date(self) -> str:
+        return self.out.date
+
+    @property
+    def back_from(self) -> str:
+        return self.out.from_airport
+
+    @property
+    def back_city(self) -> str:
+        return self.out.search_from
+
+    @property
+    def comfortable(self) -> bool:
+        return self.out.layover_ok
+
+    def signature(self) -> str:
+        return (f"{self.out.search_to}/{self.out.search_from}/"
+                f"{self.out.date}/{self.out.date}/{self.source}")
+
+    def booking_urls(self, cfg) -> list[tuple[str, str]]:
+        from .search import build_query  # local import avoids a cycle
+
+        query = build_query(cfg, [(self.out.search_from, self.out.search_to,
+                                   self.out.date, None)], trip="one-way")
+        return [("book", f"{GOOGLE_FLIGHTS}?{urllib.parse.urlencode(query.params())}")]
+
+    def to_json(self) -> dict:
+        return {
+            "signature": self.signature(),
+            "total": self.price,
+            "parsed": self.total,
+            "verified": self.verified,
+            "source": self.source,
+            "out": {
+                "route": f"{self.out.from_airport}-{self.out.to_airport}",
+                "depart": self.out.depart.isoformat(),
+                "arrive": self.out.arrive.isoformat(),
+                "stops": self.out.stops,
+                "airlines": list(self.out.airlines),
+                "price": self.out.price,
+            },
+        }
+
+
 @dataclass
 class SweepResult:
     started: datetime

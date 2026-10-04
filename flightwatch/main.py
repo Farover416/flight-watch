@@ -8,10 +8,11 @@ import logging
 import sys
 from datetime import datetime, timedelta
 
-from . import combine, config, search, survey, verify
+from . import combine, config, oneway, search, survey, verify
 from .models import Leg, SweepResult
 from . import sales as sales_feed
-from .notify import NoChatYet, Telegram, check_messages, format_sales
+from .notify import (NoChatYet, Telegram, check_messages, format_sales,
+                     one_way_messages)
 from .search import search_one_way, search_round_trip
 from .state import Store
 
@@ -146,6 +147,24 @@ SURVEY_REST_HOURS = 6
 SURVEY_MAX_PAGES = 40
 
 
+def _may_survey(store) -> bool:
+    """A browser to open pages with, and no bot check from Google lately."""
+    if not verify.available():
+        log.info("no browser available - skipping the survey")
+        return False
+    rested = store.health.get("survey_blocked_at")
+    if rested:
+        try:
+            since = datetime.utcnow() - datetime.fromisoformat(rested.rstrip("Z"))
+        except ValueError:
+            since = None
+        if since is not None and since.total_seconds() < SURVEY_REST_HOURS * 3600:
+            log.warning("Google showed a bot check %.1f h ago - not opening the "
+                        "pages this time", since.total_seconds() / 3600)
+            return False
+    return True
+
+
 def _survey(cfg, result: SweepResult, store, cities):
     """Open every search page, and let what they show replace the feed's guesses.
 
@@ -154,19 +173,8 @@ def _survey(cfg, result: SweepResult, store, cities):
     survey's own trips - one ticket and two, open jaws included - join the
     list whether or not the feed ever returned them.
     """
-    if not verify.available():
-        log.info("no browser available - skipping the survey")
+    if not _may_survey(store):
         return None
-    rested = store.health.get("survey_blocked_at")
-    if rested:
-        try:
-            since = datetime.utcnow() - datetime.fromisoformat(rested.rstrip("Z"))
-        except ValueError:
-            since = None
-        if since is not None and since.total_seconds() < SURVEY_REST_HOURS * 3600:
-            log.warning("Google showed a bot check %.1f h ago - opening only the "
-                        "cheapest few pages this time", since.total_seconds() / 3600)
-            return None
     planned = len(survey.plan(cfg, cities))
     if planned > SURVEY_MAX_PAGES:
         log.info("%d pages is too many to open them all - opening the cheapest "
@@ -297,8 +305,7 @@ def _pairs(cfg, cities) -> list[tuple[str, str]]:
     return pairs[:4]
 
 
-def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
-           dry_run: bool, focus: str | None = None, cities=None) -> int:
+def _deliverer(telegram: Telegram, dry_run: bool):
     def deliver(text: str) -> None:
         plain = (text.replace("<b>", "").replace("</b>", "")
                  .replace("<i>", "").replace("</i>", ""))
@@ -310,15 +317,21 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         except NoChatYet as exc:
             log.warning("%s", exc)
             print("\n" + plain)
+    return deliver
 
+
+def _quiet_for(cfg):
     covered_for = _laptop_covering(cfg)
     if covered_for is not None:
         log.info("the laptop checked %.1f h ago - its messages stand for this "
                  "run, which only saves its prices", covered_for.total_seconds() / 3600)
+    return covered_for
 
-    # Announcements first: a sale expires, a fare drift does not. Only the
-    # main watch announces them, and a sale either side has already announced
-    # is not announced again.
+
+def _announce_sales(cfg, store, deliver, covered_for) -> None:
+    """Announcements first: a sale expires, a fare drift does not. Only the
+    main watch announces them, and a sale either side has already announced
+    is not announced again."""
     fresh = []
     if cfg.trip is None:
         try:
@@ -331,6 +344,48 @@ def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
         if covered_for is None:
             deliver(format_sales(fresh))
         store.record_sales(fresh)
+
+
+def report_one_way(cfg, store: Store, telegram: Telegram, dry_run: bool) -> int:
+    """The watch of the flight home alone: search it, read its pages, say it
+    in two messages - the cheapest three within your rules, and rules aside."""
+    cfg = oneway.for_run(cfg)
+    plan = cfg.one_way_home
+    log.info("watching only the flight home: %s to %s, one way, on %s",
+             cfg.city_name(plan.city), cfg.city_name(cfg.origin),
+             ", ".join(plan.dates))
+    result = oneway.sweep(cfg)
+    deliver = _deliverer(telegram, dry_run)
+    covered_for = _quiet_for(cfg)
+    _announce_sales(cfg, store, deliver, covered_for)
+
+    found = None
+    if cfg.survey and _may_survey(store):
+        pages = oneway.pages(cfg)
+        try:
+            found = survey.run(cfg, result, [plan.city], pages=pages)
+        except Exception as exc:
+            log.warning("survey unavailable (%s)", exc)
+        if found is not None and found.blocked:
+            store.health["survey_blocked_at"] = (
+                datetime.utcnow().isoformat(timespec="seconds") + "Z")
+        if found is not None and found.pages:
+            oneway.apply_survey(result, found, pages)
+
+    if covered_for is None:
+        unread = len(found.unread) if found is not None else 0
+        for text in one_way_messages(cfg, result, unread=unread):
+            deliver(text)
+    store.append_history(result)
+    store.save()
+    return 0
+
+
+def report(cfg, result: SweepResult, store: Store, telegram: Telegram,
+           dry_run: bool, focus: str | None = None, cities=None) -> int:
+    deliver = _deliverer(telegram, dry_run)
+    covered_for = _quiet_for(cfg)
+    _announce_sales(cfg, store, deliver, covered_for)
 
     if result.looks_blocked:
         log.error("every search came back empty — Google Flights is likely blocking us")
@@ -436,6 +491,11 @@ def main(argv: list[str] | None = None) -> int:
                  cfg.data_dir)
 
     store = Store(cfg.data_dir, cfg)
+    if cfg.one_way_home is not None and cfg.trip is None:
+        if args.only:
+            log.info("--only %s is not needed: only the flight home is watched",
+                     args.only)
+        return report_one_way(cfg, store, telegram, dry_run=args.dry_run)
     wanted = [t for t in args.only.split(",") if t.strip()]
     only, unknown = cfg.resolve_destinations(wanted) if wanted else ([], [])
     if unknown:

@@ -64,6 +64,16 @@ class Trip:
 
 
 @dataclass
+class OneWayHome:
+    """Watch only the flight home: one way, from one city, on these days."""
+
+    city: str                        # the city code searched from, e.g. BJS
+    dates: list[str] = field(default_factory=list)
+    # Landing limit, if any. None: whenever it lands on or after its day.
+    arrive_by: datetime | None = None
+
+
+@dataclass
 class Layover:
     """When a connection is worth having. See config.yaml for the reasoning."""
 
@@ -119,6 +129,10 @@ class Config:
     # and keeps writing exactly where it always has.
     trips: dict[str, Trip] = field(default_factory=dict)
     trip: Trip | None = None
+
+    # Set once the way out is booked: the December watch then prices nothing
+    # but this one-way flight home. See config.yaml.
+    one_way_home: OneWayHome | None = None
 
     keep_per_search: int = 5
     report_top: int = 12
@@ -275,6 +289,7 @@ class Config:
 
         changed = dataclasses.replace(self, **settings)
         changed.trip = trip
+        changed.one_way_home = None      # the December trip's flight home only
         if trip.data_subdir:
             changed.data_dir = self.data_dir / trip.data_subdir
             changed.data_dir.mkdir(parents=True, exist_ok=True)
@@ -361,6 +376,18 @@ def load(path: str | Path | None = None) -> Config:
     deadline = raw.get("arrive_home_by")
     if deadline:
         cfg.arrive_home_by = _as_datetime(deadline)
+
+    home = raw.get("one_way_home")
+    if home:
+        place = str(home.get("from") or "").strip()
+        codes, unknown = cfg.resolve_destinations([place])
+        if unknown or len(codes) != 1:
+            raise ValueError(f"one_way_home: cannot tell which city {place!r} is")
+        cfg.one_way_home = OneWayHome(
+            city=codes[0],
+            dates=[str(d) for d in home.get("dates") or []],
+            arrive_by=_as_datetime(home["arrive_by"]) if home.get("arrive_by") else None,
+        )
 
     # A proxy is only needed if the scraper starts getting blocked.
     cfg.proxy = os.environ.get("FLIGHTWATCH_PROXY") or None

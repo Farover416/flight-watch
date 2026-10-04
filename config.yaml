@@ -52,6 +52,17 @@ realert_drop: 20
 # even if it is still above max_total (so you can watch the trend).
 new_best_drop: 40
 
+# --- the flight home only ---------------------------------------------------
+# From 4 Oct the way out is settled (Qingdao, 19 Dec; then Weihai, then
+# Beijing), so the December watch prices one thing only: a one-way flight home
+# from Beijing, leaving on either of these days. No landing limit - add
+# arrive_by: "2026-12-31 08:00" (say) to set one. The layover rules, the 1-stop
+# cap and the checked bag still apply. Take this block out to go back to
+# watching whole trips with the dates below.
+one_way_home:
+  from: Beijing
+  dates: ["2026-12-29", "2026-12-30"]
+
 # --- dates ------------------------------------------------------------------
 # Outbound. "night" on the 18th is enforced as a departure at or after 21:00.
 outbound:
