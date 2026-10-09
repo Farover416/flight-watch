@@ -28,7 +28,7 @@
   "TPE/TPE/2026-11-22/2026-12-09/round-trip": 811,
   "TPE/TPE/2026-11-26/2026-12-10/round-trip": 840,
   "TPE/TPE/2026-11-24/2026-12-12/round-trip": 1384,
-  "TPE/TPE/2026-11-27/2026-12-11/round-trip": 1362,
+  "TPE/TPE/2026-11-27/2026-12-11/round-trip": 936,
   "TPE/TPE/2026-11-22/2026-12-06/round-trip": 773,
   "TPE/TPE/2026-11-21/2026-12-21/round-trip": 1421,
   "TPE/TPE/2026-12-09/2026-12-31/round-trip": 1434,
@@ -81,5 +81,16 @@
   "TPE/TPE/2026-12-02/2026-12-19/round-trip": 1452,
   "TPE/TPE/2026-12-05/2026-12-19/round-trip": 1568,
   "TPE/TPE/2026-12-03/2026-12-18/round-trip": 1169,
-  "TPE/TPE/2026-12-04/2026-12-19/round-trip": 1851
+  "TPE/TPE/2026-12-04/2026-12-19/round-trip": 1851,
+  "TPE/TPE/2026-11-26/2026-12-11/round-trip": 840,
+  "TPE/TPE/2026-11-26/2026-12-12/round-trip": 1117,
+  "TPE/TPE/2026-11-27/2026-12-12/round-trip": 1117,
+  "TPE/TPE/2026-11-26/2026-12-13/round-trip": 1198,
+  "TPE/TPE/2026-11-27/2026-12-13/round-trip": 1211,
+  "TPE/TPE/2026-11-28/2026-12-12/round-trip": 1227,
+  "TPE/TPE/2026-11-28/2026-12-13/round-trip": 1321,
+  "TPE/TPE/2026-11-25/2026-12-11/round-trip": 1384,
+  "TPE/TPE/2026-11-25/2026-12-12/round-trip": 1616,
+  "TPE/TPE/2026-11-25/2026-12-13/round-trip": 1616,
+  "TPE/TPE/2026-11-29/2026-12-13/round-trip": 1686
 }
