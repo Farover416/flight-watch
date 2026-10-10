@@ -5,50 +5,28 @@ on:
     # All times UTC; Singapore is UTC+8. The odd minutes avoid GitHub's
     # on-the-hour queue, when scheduled jobs get delayed the most.
     #
-    # Baseline: every 2 hours. Two reasons it is not every 4 as before.
-    #
-    # First, GitHub drops scheduled runs. Measured over the eight days of
-    # this watcher's own history, a 6-a-day schedule delivered 3 to 4 a day,
-    # with gaps of 6 to 8 hours routine and one of 14.5, and a 27 to 88
-    # minute delay whenever a run did fire. Asking for 12 lands about 8.
-    #
-    # Second, it is affordable now: a three-city run takes about 3 minutes,
-    # where the old sweep of everywhere took 30.
-    #
-    # Note this is NOT aimed at an hour of day when fares are cheap. This
-    # watcher's own record shows no such hour: on settled days the price
-    # moves S$0 to S$50 from morning to night, while the day-to-day swing is
-    # S$103. Sampling denser within a day chases noise. What it does buy is
-    # not missing a one-day sale, which is where the real drops come from.
-    - cron: "7 */2 * * *"
-    # Scoot's Tuesday flash sale is the exception that is worth aiming at: a
-    # real, recurring, time-boxed event that opens around 10:00 SGT and runs
-    # to midnight, on the carrier most likely to undercut these routes.
-    # These odd-hour slots interleave with the even-hour baseline to give
-    # roughly hourly cover across the sale, Tue 11:47 to 23:47 SGT.
-    # (No Friday slot: Jetstar Asia, the other weekly-sale carrier out of
-    # Changi, shut down in July 2025.)
-    - cron: "47 3-15/2 * * 2"
-    # Taipei, four times a day. Deliberately slower than the December watch:
-    # that one is hunting a sale inside a three-week booking window, this one
-    # is watching a six-week holiday still two months out, where nothing
-    # moves in two hours. It also costs more - about 60 searches a run
-    # against a dozen - so running it every slot would quadruple the day's
-    # requests to watch a fare that barely drifts.
+    # Taipei only, four times a day: a six-week holiday still two months
+    # out, where nothing moves in two hours. The December watch - Beijing and
+    # Qingdao, and last the one-way flight home - stopped on 10 Oct once the
+    # flight home was booked, and with it went its every-2-hours schedule,
+    # its Tuesday slots for Scoot's flash sale, and the sale alerts.
     - cron: "23 1,7,13,19 * * *"
   workflow_dispatch:
+    # The app's Run button sends all three. They stay declared so that any
+    # copy of the app, a phone's saved one included, can still start a run;
+    # whichever trip it names, only Taipei is checked.
     inputs:
       trip:
-        description: "Which trip to check"
+        description: "Which trip to check - only Taipei is watched now"
         type: choice
         options: [december, taipei, both]
-        default: december
+        default: taipei
       summary:
-        description: "Send the current cheapest fares even if nothing is new"
+        description: "Not used"
         type: boolean
         default: true
       only:
-        description: "Check one place only - area, city or code, e.g. Yunnan or Beijing"
+        description: "Not used"
         type: string
         default: ""
 
@@ -86,34 +64,15 @@ jobs:
         continue-on-error: true
         run: python -m playwright install --with-deps chromium
 
-      - name: Search for fares
-        if: ${{ github.event_name != 'workflow_dispatch' || inputs.trip != 'taipei' }}
+      # The only search now. If it fails, the step below still saves
+      # whatever it recorded.
+      - name: Search for Taipei fares
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           # Optional - leave unset and the first run works the chat out from
           # whoever has messaged the bot, then caches it in data/telegram.json.
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           # Optional: only needed if Google starts blocking GitHub's IPs.
-          FLIGHTWATCH_PROXY: ${{ secrets.FLIGHTWATCH_PROXY }}
-          SUMMARY: ${{ inputs.summary }}
-          ONLY: ${{ inputs.only }}
-        run: |
-          args=()
-          [ "$SUMMARY" = "true" ] && args+=(--summary)
-          # quoted, so a two-word place name stays one argument
-          [ -z "$ONLY" ] && ONLY="Beijing,Qingdao"
-          [ -n "$ONLY" ] && args+=(--only "$ONLY")
-          python -m flightwatch "${args[@]}"
-
-      # Its own step rather than its own job: two jobs committing to main at
-      # once is a push race, and this way both trips' prices land in one
-      # commit. A failure here still lets the step below save whatever the
-      # December run recorded.
-      - name: Search for Taipei fares
-        if: ${{ (github.event_name == 'schedule' && github.event.schedule == '23 1,7,13,19 * * *') || (github.event_name == 'workflow_dispatch' && inputs.trip != 'december') }}
-        env:
-          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
-          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
           FLIGHTWATCH_PROXY: ${{ secrets.FLIGHTWATCH_PROXY }}
         run: python -m flightwatch --trip taipei
 

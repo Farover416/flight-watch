@@ -235,11 +235,13 @@ const CORE = ["Beijing", "Qingdao"];
    has no room for a trip - see config.py's for_trip.
 
    Totals are NOT comparable between trips: Taipei is priced for two
-   people. The heading says so on every switch, because a chart cannot. */
+   people. The heading says so on every switch, because a chart cannot.
+
+   Taipei is the only trip now. The December one (key "december", folder
+   data) stopped on 10 Oct once its flight home was booked; its prices are
+   still in data/, just no longer shown, and an old #december link opens
+   Taipei. */
 const TRIPS = [
-  { key: "december", label: "Flight home", dir: "data", adults: 1,
-    blurb: "Beijing → Singapore, one way, 29 or 30 Dec, with a checked bag. " +
-           "Earlier lines are the whole trips watched before 4 Oct." },
   { key: "taipei", label: "Taipei", dir: "data/taipei", adults: 2,
     blurb: "Singapore ⇄ Taipei, anywhere in 21 Nov – 31 Dec, 2–4 weeks away. " +
            "Direct flights only, no checked bag. Prices are for 2 adults." },
@@ -1227,6 +1229,8 @@ function renderTrips() {
     };
     box.appendChild(b);
   }
+  // One trip, nothing to switch between.
+  box.hidden = TRIPS.length < 2;
   $("trip-sub").textContent = TRIP.blurb;
   // Taipei is one route on a date window - there is nothing to pick.
   const pickable = TRIP.key === "december";

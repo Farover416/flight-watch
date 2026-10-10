@@ -450,8 +450,8 @@ def main(argv: list[str] | None = None) -> int:
                              "e.g. Yunnan or Beijing or CTU,CKG")
     parser.add_argument("--no-round-trip", action="store_true")
     parser.add_argument("--trip", default="",
-                        help="watch one of the other trips in config.yaml "
-                             "instead of the December one, e.g. taipei")
+                        help="the trip in config.yaml to watch, e.g. taipei - "
+                             "the December one has stopped")
     parser.add_argument("--whoami", action="store_true",
                         help="print your Telegram chat id and exit")
     args = parser.parse_args(argv)
@@ -468,6 +468,16 @@ def main(argv: list[str] | None = None) -> int:
 
     if args.whoami:
         print(telegram.whoami())
+        return 0
+
+    if not args.trip:
+        # The December trip is booked - the flight home on 8 Oct - and its
+        # watch stopped on 10 Oct, the sale alerts with it. Nothing schedules
+        # it now; this keeps anything that still asks for it, such as a laptop
+        # check started before the change, from checking it once more. Its
+        # prices stay in data/ as they were.
+        log.info("the December watch has stopped - only --trip taipei is "
+                 "checked now")
         return 0
 
     if args.trip:

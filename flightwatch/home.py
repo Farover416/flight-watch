@@ -1,5 +1,9 @@
 """The price checks that run on your laptop, every 2 hours while it is on.
 
+Since 10 Oct that means Taipei alone, at most every 6 hours: the December
+watch stopped once its flight home was booked, so most of these checks now
+find nothing due and only save.
+
 Why they exist: Google shows GitHub's servers only the airlines' own fares.
 Measured on 23 Sep 2026 with the same search a few minutes apart, every
 browser tried on GitHub - Chrome and Edge, hidden and with a window, UTC and
@@ -40,19 +44,17 @@ TOKEN = BASE / "telegram-token.txt"
 LOCK = BASE / "home-run.lock"
 TASK = "Flight Watch laptop check"
 
-# What the scheduled GitHub runs check when nobody asked for anything else -
-# ONLY in .github/workflows/check.yml. Change both together.
-DECEMBER_ONLY = "Beijing,Qingdao"
 # GitHub checks Taipei four times a day, and nothing two months out moves
 # faster than that; checking it every laptop run would only cost time.
 TAIPEI_EVERY = dt.timedelta(hours=6)
 # The only paths ever committed from here. GitHub never writes them, and this
 # never writes anything else, which is what keeps the two from colliding.
+# (data/home is December's, written no more but kept for any unsent commit.)
 OWN = ("data/home", "data/taipei/home")
 
 NO_WINDOW = getattr(subprocess, "CREATE_NO_WINDOW", 0)
-# December now opens every search page (flightwatch/survey.py): about forty
-# minutes on its own, and Taipei can follow it in the same check.
+# A Taipei check takes about a quarter of an hour; this is the ceiling, well
+# inside the task's own 110-minute limit.
 WATCH_TIMEOUT = 100 * 60
 
 
@@ -383,7 +385,6 @@ def run() -> int:
                 job.say("could not catch up with GitHub (offline?) - trying "
                         "again next time")
                 return 1
-            job.watch("--only", DECEMBER_ONLY)
             if _taipei_due():
                 job.watch("--trip", "taipei")
             else:
