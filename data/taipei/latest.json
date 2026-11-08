@@ -1,5 +1,5 @@
 {
-  "ts": "2026-11-08T18:24:43Z",
+  "ts": "2026-11-08T22:58:26Z",
   "links": {
     "TPE/TPE/2026-11-24/2026-12-08/round-trip": [
       [
@@ -253,16 +253,16 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMjcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-03/2026-12-17/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTcoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
     "TPE/TPE/2026-11-25/2026-12-24/round-trip": [
       [
         "book",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMjUoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjQoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-03/2026-12-17/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTcoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-11-24/2026-12-16/round-trip": [
