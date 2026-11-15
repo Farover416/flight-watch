@@ -1,18 +1,18 @@
 {
-  "total": 504,
-  "verified": 504,
-  "signature": "TPE/TPE/2026-11-24/2026-12-09/round-trip",
-  "seen_at": "2026-11-11T12:11:11Z",
+  "total": 503,
+  "verified": 503,
+  "signature": "TPE/TPE/2026-11-24/2026-12-10/round-trip",
+  "seen_at": "2026-11-15T11:57:05Z",
   "detail": {
-    "signature": "TPE/TPE/2026-11-24/2026-12-09/round-trip",
-    "total": 504,
-    "parsed": 504,
-    "verified": 504,
+    "signature": "TPE/TPE/2026-11-24/2026-12-10/round-trip",
+    "total": 503,
+    "parsed": 503,
+    "verified": 503,
     "verified_back": null,
     "country": "Taiwan",
     "source": "round-trip",
     "open_jaw": false,
-    "nights": 15,
+    "nights": 16,
     "out": {
       "route": "SIN-TPE",
       "depart": "2026-11-24T06:10:00",
@@ -21,11 +21,11 @@
       "airlines": [
         "ScootSingapore Airlines"
       ],
-      "price": 504
+      "price": 503
     },
     "back": {
       "route": "TPE-SIN",
-      "date": "2026-12-09",
+      "date": "2026-12-10",
       "verified": false
     }
   }
