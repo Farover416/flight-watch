@@ -1,34 +1,22 @@
 {
-  "ts": "2026-11-25T09:44:13Z",
+  "ts": "2026-11-25T17:44:04Z",
   "links": {
-    "TPE/TPE/2026-12-03/2026-12-17/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTcoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-08/2026-12-22/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDgoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjIoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
     "TPE/TPE/2026-12-09/2026-12-25/round-trip": [
       [
         "book",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDkoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjUoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-09/2026-12-23/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDkoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjMoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
     "TPE/TPE/2026-12-09/2026-12-24/round-trip": [
       [
         "book",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDkoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjQoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-09/2026-12-23/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDkoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjMoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-12-10/2026-12-24/round-trip": [
@@ -43,10 +31,16 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTAoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjUoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-09/2026-12-26/round-trip": [
+    "TPE/TPE/2026-12-15/2026-12-31/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDkoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjYoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTUoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-16/2026-12-31/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTYoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-12-09/2026-12-27/round-trip": [
@@ -61,16 +55,34 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDkoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-10/2026-12-26/round-trip": [
+    "TPE/TPE/2026-12-15/2026-12-29/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTAoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjYoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTUoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-10/2026-12-27/round-trip": [
+    "TPE/TPE/2026-12-15/2026-12-30/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTAoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjcoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTUoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzAoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-16/2026-12-30/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTYoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzAoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-03/2026-12-17/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTcoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-08/2026-12-22/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDgoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjIoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-12-08/2026-12-23/round-trip": [
@@ -91,22 +103,34 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDgoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjUoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-11-27/2026-12-11/round-trip": [
+    "TPE/TPE/2026-12-13/2026-12-27/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMjcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjcoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-08/2026-12-26/round-trip": [
+    "TPE/TPE/2026-12-13/2026-12-28/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDgoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjYoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-08/2026-12-27/round-trip": [
+    "TPE/TPE/2026-12-13/2026-12-29/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDgoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjcoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-13/2026-12-30/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzAoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-13/2026-12-31/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-12-03/2026-12-25/round-trip": [
@@ -139,46 +163,16 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjUoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-15/2026-12-29/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTUoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-08/2026-12-28/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDgoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-09/2026-12-28/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDkoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-09/2026-12-29/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDkoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-10/2026-12-28/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTAoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-10/2026-12-29/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTAoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
     "TPE/TPE/2026-12-03/2026-12-21/round-trip": [
       [
         "book",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-03/2026-12-29/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-12-17/2026-12-31/round-trip": [
@@ -193,28 +187,28 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-07/2026-12-26/round-trip": [
+    "TPE/TPE/2026-12-14/2026-12-28/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjYoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTQoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-07/2026-12-27/round-trip": [
+    "TPE/TPE/2026-12-14/2026-12-29/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjcoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTQoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-11/2026-12-26/round-trip": [
+    "TPE/TPE/2026-12-14/2026-12-30/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTEoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjYoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTQoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzAoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-06/2026-12-24/round-trip": [
+    "TPE/TPE/2026-12-14/2026-12-31/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDYoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjQoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTQoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-12-11/2026-12-25/round-trip": [
@@ -223,10 +217,16 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTEoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjUoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-08/2026-12-29/round-trip": [
+    "TPE/TPE/2026-12-06/2026-12-24/round-trip": [
       [
         "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDgoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDYoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjQoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-12-12/2026-12-30/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTIoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzAoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-12-06/2026-12-20/round-trip": [
@@ -241,60 +241,6 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTIoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjYoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
-    "TPE/TPE/2026-12-12/2026-12-30/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTIoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzAoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-11/2026-12-27/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTEoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjcoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-03/2026-12-29/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDMoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-07/2026-12-28/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-07/2026-12-29/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-11/2026-12-28/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTEoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-06/2026-12-28/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDYoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-12-11/2026-12-29/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMTEoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-11-30/2026-12-22/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMzAoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjIoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
     "TPE/TPE/2026-11-30/2026-12-14/round-trip": [
       [
         "book",
@@ -305,6 +251,12 @@
       [
         "book",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMzAoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-11-30/2026-12-22/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMzAoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjIoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-11-30/2026-12-26/round-trip": [
@@ -319,10 +271,28 @@
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMzAoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMzAoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
+    "TPE/TPE/2026-12-06/2026-12-28/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTItMDYoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjgoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-11-27/2026-12-11/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMjcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTEoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
     "TPE/TPE/2026-11-27/2026-12-15/round-trip": [
       [
         "book",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMjcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTUoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
+      ]
+    ],
+    "TPE/TPE/2026-11-27/2026-12-23/round-trip": [
+      [
+        "book",
+        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMjcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjMoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ],
     "TPE/TPE/2026-11-27/2026-12-27/round-trip": [
@@ -335,12 +305,6 @@
       [
         "book",
         "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMjcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMTkoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
-      ]
-    ],
-    "TPE/TPE/2026-11-27/2026-12-23/round-trip": [
-      [
-        "book",
-        "https://www.google.com/travel/flights?tfs=GhwSCjIwMjYtMTEtMjcoAGoFEgNTSU5yBRIDVFBFGhwSCjIwMjYtMTItMjMoAGoFEgNUUEVyBRIDU0lOQgIBAUgBagQQARgAmAEB&hl=en-US&curr=SGD&gl=SG"
       ]
     ]
   }
